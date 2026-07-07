@@ -462,7 +462,8 @@ Scope {
                     readonly property bool working: Hyprvoice.phase === "transcribing" || Hyprvoice.phase === "polishing"
                     readonly property bool typing: Hyprvoice.phase === "typing"
                     readonly property bool done: Hyprvoice.phase === "done"
-                    readonly property color recColor: "#F28B82"
+                    // muted island accent (blue) — user preference over recording-red
+                    readonly property color recColor: IslandStyle.accent
                     readonly property color okColor: "#7EE787"
 
                     // mic badge — filled while listening, with a sonar pulse ring
@@ -505,7 +506,7 @@ Scope {
                             anchors.centerIn: parent
                             iconSize: 16
                             fill: 1
-                            color: dictationUI.listening ? "#1A1111"
+                            color: dictationUI.listening ? "#10131C"
                                 : dictationUI.done ? dictationUI.okColor
                                 : IslandStyle.textColor
                             text: dictationUI.done ? "check"
@@ -515,13 +516,23 @@ Scope {
                         }
                     }
 
-                    // live mic waveform — only while listening; collapses away for a
-                    // clean width morph into the transcribing pill
+                    // waveform — procedural traveling wave, always alive while
+                    // listening (mic-level cava looked dead at low gain). Stepped
+                    // ticker + Behavior smoothing, same perf pattern as the shimmer.
+                    // Collapses away for a clean width morph into the transcribing pill.
                     Item {
+                        id: dictationWave
                         Layout.alignment: Qt.AlignVCenter
                         visible: dictationUI.listening
                         implicitWidth: 96
                         implicitHeight: 24
+                        property real phase: 0
+                        Timer {
+                            interval: 90
+                            repeat: true
+                            running: dictationWave.visible && dictationUI.visible
+                            onTriggered: dictationWave.phase += 0.55
+                        }
                         Row {
                             anchors.centerIn: parent
                             spacing: 3
@@ -537,9 +548,13 @@ Scope {
                                         width: 3
                                         radius: 1.5
                                         color: dictationUI.recColor
-                                        // 18 cava bars → middle 16 (edge bands are mostly dead)
-                                        height: Math.max(3, (Hyprvoice.levels[micBarCell.index + 1] ?? 0) * 22)
-                                        Behavior on height { NumberAnimation { duration: 80; easing.type: Easing.OutQuad } }
+                                        // two offset sines → organic, non-robotic wave
+                                        height: {
+                                            const w = 0.62 * Math.sin(dictationWave.phase + micBarCell.index * 0.8)
+                                                    + 0.38 * Math.sin(1.7 - dictationWave.phase * 1.3 + micBarCell.index * 0.45);
+                                            return 12.5 + 9.5 * w;
+                                        }
+                                        Behavior on height { NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
                                     }
                                 }
                             }

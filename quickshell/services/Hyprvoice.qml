@@ -1,7 +1,5 @@
 pragma Singleton
 pragma ComponentBehavior: Bound
-import qs.modules.common
-import qs.modules.common.functions
 import QtQuick
 import Quickshell
 import Quickshell.Io
@@ -15,8 +13,8 @@ import Quickshell.Hyprland
  * release stops it — so the notch reacts instantly instead of waiting for a
  * poll. While a run is active the daemon is polled (`hyprvoice status` →
  * "STATUS status=<s>") to follow recording → transcribing → [processing] →
- * injecting → idle. While recording, a mic-attached cava feeds `levels`
- * (0..1) for a live waveform — same raw-ascii trick as the media visualizer.
+ * injecting → idle. (The waveform in the notch is procedural — a mic-cava
+ * feed was tried and looked dead at low mic gain.)
  */
 Singleton {
     id: root
@@ -49,9 +47,6 @@ Singleton {
             return "polishing";
         return "transcribing"; // recording|transcribing after release → STT running
     }
-
-    // Live mic levels (0..1) from cava while recording.
-    property list<real> levels: []
 
     // IDEMPOTENT on purpose: Hyprland can deliver DUPLICATE press/release events
     // for a global shortcut (the press bind's key tracking releases it AND the
@@ -164,23 +159,6 @@ Singleton {
         command: ["hyprvoice", "status"]
         stdout: StdioCollector {
             onStreamFinished: root.applyStatus(text)
-        }
-    }
-
-    // Mic waveform: cava capturing @DEFAULT_SOURCE@ (the mic hyprvoice records;
-    // PipeWire happily hands out a second capture stream alongside pw-record).
-    Process {
-        id: micCava
-        running: root.phase === "listening"
-        onRunningChanged: {
-            if (!running)
-                root.levels = [];
-        }
-        command: ["cava", "-p", FileUtils.trimFileProtocol(Directories.scriptPath) + "/cava/mic_raw_config.txt"]
-        stdout: SplitParser {
-            onRead: data => {
-                root.levels = data.split(";").map(p => Math.max(0, Math.min(1, parseFloat(p.trim()) / 1000))).filter(p => !isNaN(p));
-            }
         }
     }
 
