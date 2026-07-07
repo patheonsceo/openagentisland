@@ -5,6 +5,40 @@ lives in `NOTES.md`.
 
 ---
 
+## 2026-07-07 — Voice dictation in the notch (hyprvoice push-to-talk)
+
+New notch surface: hold **Right Ctrl** → notch morphs into a dictation pill
+(pulsing coral mic badge + LIVE mic waveform + "Listening"), release → shimmering
+"Transcribing…" → "Typing…" → green "Done" flash → collapse. Click the pill
+mid-run to cancel.
+
+- `services/Hyprvoice.qml` (new): singleton owning the PTT flow. `hyprvoicePtt`
+  GlobalShortcut (press+release binds in `custom/keybinds.lua`) fires
+  `hyprvoice toggle` via execDetached; polls `hyprvoice status` at 200ms while
+  active. **Gotcha:** the daemon reports `transcribing` from the FIRST AUDIO
+  FRAME (streaming design) — `pttHeld`, not daemon state, decides the
+  "listening" phase (`phase` derived property). `idleGrace` swallows stale
+  idle reads during toggle handshakes; `failCount` bails out if the daemon
+  dies mid-run. IPC-testable: `qs -c openagentisland ipc call hyprvoice
+  pttPress/pttRelease/cancel`.
+- Mic waveform: second cava instance on `@DEFAULT_SOURCE@` (libpulse magic
+  name — no shell/sed needed; `scripts/cava/mic_raw_config.txt`, 18 bars,
+  middle 16 shown). PipeWire multiplexes the mic fine alongside pw-record.
+- `IslandNotch.qml`: `dictation` displaySource at TOP precedence (user is
+  actively speaking — nothing steals the notch); dictationUI RowLayout
+  (sonar pulse ring, waveform, AgentStatusText shimmer reuse); pill click =
+  cancel while active; hyprvoice's own notify-send chatter is filtered from
+  the notification OSD (appName "Hyprvoice", errors still pop; history keeps
+  everything).
+- Verified live on eDP-1 via IPC + grim screenshots: listening pill renders
+  (flat dotted waveform in silence — expected), cancel collapses and hands
+  the notch back to the agent state correctly. Real-voice end-to-end
+  (release → Groq → text injection) pending user test.
+- Keybind rationale: Fn is EC/firmware-level on the Swift Go 14 (no keycode),
+  so Right Ctrl is the hold key (consumed; use Left Ctrl for shortcuts).
+  Headless fallback binds (`qs ipc TEST_ALIVE || hyprvoice toggle`) keep
+  dictation alive if quickshell is down.
+
 ## Current phase & status
 
 **FEATURE-COMPLETE; multi-monitor blanking FIXED + VERIFIED on the scaled built-in

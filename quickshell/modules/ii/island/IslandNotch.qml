@@ -160,8 +160,10 @@ Scope {
             // --- state machine ---
             property string expandedSource: ""  // transient OSD: volume|brightness|notification|""
             // Agent-forward: an active agent outranks media for the notch display
-            // (precedence: transient OSD > agent > media). Music keeps playing.
-            property string displaySource: expandedSource !== "" ? expandedSource
+            // (precedence: dictation > transient OSD > agent > media). Music keeps
+            // playing. Dictation is the user actively SPEAKING — nothing steals it.
+            property string displaySource: Hyprvoice.active ? "dictation"
+                : expandedSource !== "" ? expandedSource
                 : (AgentService.active ? "agent"
                 : (root.mediaActive ? "media" : ""))
             // open (a named surface is up ON THIS MONITOR) outranks transient OSDs,
@@ -240,8 +242,14 @@ Scope {
             Connections {
                 target: Notifications
                 function onNotify(notification) {
-                    notchWindow.notifApp = notification.appName ?? "";
-                    notchWindow.notifSummary = notification.summary ?? "";
+                    // The dictation pill IS the hyprvoice status UX — don't also pop
+                    // its notify-send chatter (still lands in history). Errors pop.
+                    const app = notification.appName ?? "";
+                    const summary = notification.summary ?? "";
+                    if (app === "Hyprvoice" && !summary.includes("Error"))
+                        return;
+                    notchWindow.notifApp = app;
+                    notchWindow.notifSummary = summary;
                     notchWindow.notifIcon = notification.appIcon ?? "";
                     notchWindow.trigger("notification", 4000);
                 }
@@ -259,6 +267,8 @@ Scope {
                     return mediaUI.implicitWidth;
                 case "agent":
                     return agentUI.implicitWidth;
+                case "dictation":
+                    return dictationUI.implicitWidth;
                 default:
                     return 0;
                 }
@@ -267,7 +277,7 @@ Scope {
                 : islandState === "expanded" ? (displaySource === "agent" ? (root.mediaActive ? 264 : 224) : Math.min(root.expandedMaxWidth, contentWidth + 36))
                 : 180
             property real targetHeight: islandState === "open" ? (root.surfaceSizes[Island.openSurface]?.h ?? root.maxHeight)
-                : islandState === "expanded" ? (displaySource === "media" || displaySource === "agent" ? 40 : 54)
+                : islandState === "expanded" ? (displaySource === "media" || displaySource === "agent" || displaySource === "dictation" ? 40 : 54)
                 : 36
 
             // Full-screen click-catcher (only while open). Sits BEHIND the notch
@@ -328,6 +338,12 @@ Scope {
                     // surface is open, surfaceHost's absorber catches clicks (no
                     // accidental close); close via Esc or re-clicking the trigger pill.
                     onClicked: {
+                        // mid-dictation the pill is a cancel button
+                        if (notchWindow.displaySource === "dictation") {
+                            if (Hyprvoice.state !== "idle")
+                                Hyprvoice.cancel();
+                            return;
+                        }
                         // open on THIS monitor (moves the surface here if another had it)
                         Island.open(notchWindow.displaySource === "agent" ? "agent" : "dashboard",
                                     notchWindow.screen.name);
@@ -430,6 +446,117 @@ Scope {
                             font.pixelSize: Appearance.font.pixelSize.small
                             color: IslandStyle.textColor
                         }
+                    }
+                }
+
+                // ---- dictation (hyprvoice push-to-talk): pulsing mic · live mic waveform · status ----
+                RowLayout {
+                    id: dictationUI
+                    anchors.centerIn: parent
+                    spacing: 10
+                    opacity: notchWindow.islandState === "expanded" && notchWindow.displaySource === "dictation" ? 1 : 0
+                    visible: opacity > 0
+                    Behavior on opacity { NumberAnimation { duration: 150; easing.type: Easing.OutQuad } }
+
+                    readonly property bool listening: Hyprvoice.phase === "listening"
+                    readonly property bool working: Hyprvoice.phase === "transcribing" || Hyprvoice.phase === "polishing"
+                    readonly property bool typing: Hyprvoice.phase === "typing"
+                    readonly property bool done: Hyprvoice.phase === "done"
+                    readonly property color recColor: "#F28B82"
+                    readonly property color okColor: "#7EE787"
+
+                    // mic badge — filled while listening, with a sonar pulse ring
+                    Item {
+                        Layout.alignment: Qt.AlignVCenter
+                        implicitWidth: 26
+                        implicitHeight: 26
+                        Rectangle {
+                            id: pulseRing
+                            anchors.centerIn: parent
+                            width: 26
+                            height: 26
+                            radius: 13
+                            color: "transparent"
+                            border.width: 2
+                            border.color: dictationUI.recColor
+                            opacity: 0
+                        }
+                        ParallelAnimation {
+                            running: dictationUI.listening && dictationUI.visible
+                            loops: Animation.Infinite
+                            onRunningChanged: {
+                                if (!running) {
+                                    pulseRing.opacity = 0;
+                                    pulseRing.scale = 1;
+                                }
+                            }
+                            NumberAnimation { target: pulseRing; property: "scale"; from: 1; to: 1.65; duration: 1100; easing.type: Easing.OutQuad }
+                            NumberAnimation { target: pulseRing; property: "opacity"; from: 0.85; to: 0; duration: 1100; easing.type: Easing.OutQuad }
+                        }
+                        Rectangle {
+                            anchors.fill: parent
+                            radius: 13
+                            color: dictationUI.listening ? dictationUI.recColor
+                                : dictationUI.done ? Qt.rgba(0.49, 0.91, 0.53, 0.18)
+                                : Qt.rgba(1, 1, 1, 0.10)
+                            Behavior on color { ColorAnimation { duration: 200 } }
+                        }
+                        MaterialSymbol {
+                            anchors.centerIn: parent
+                            iconSize: 16
+                            fill: 1
+                            color: dictationUI.listening ? "#1A1111"
+                                : dictationUI.done ? dictationUI.okColor
+                                : IslandStyle.textColor
+                            text: dictationUI.done ? "check"
+                                : dictationUI.typing ? "keyboard"
+                                : dictationUI.working ? "graphic_eq"
+                                : "mic"
+                        }
+                    }
+
+                    // live mic waveform — only while listening; collapses away for a
+                    // clean width morph into the transcribing pill
+                    Item {
+                        Layout.alignment: Qt.AlignVCenter
+                        visible: dictationUI.listening
+                        implicitWidth: 96
+                        implicitHeight: 24
+                        Row {
+                            anchors.centerIn: parent
+                            spacing: 3
+                            Repeater {
+                                model: 16
+                                delegate: Item {
+                                    id: micBarCell
+                                    required property int index
+                                    width: 3
+                                    height: 24
+                                    Rectangle {
+                                        anchors.centerIn: parent
+                                        width: 3
+                                        radius: 1.5
+                                        color: dictationUI.recColor
+                                        // 18 cava bars → middle 16 (edge bands are mostly dead)
+                                        height: Math.max(3, (Hyprvoice.levels[micBarCell.index + 1] ?? 0) * 22)
+                                        Behavior on height { NumberAnimation { duration: 80; easing.type: Easing.OutQuad } }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    AgentStatusText {
+                        Layout.alignment: Qt.AlignVCenter
+                        word: dictationUI.done ? "Done"
+                            : dictationUI.typing ? "Typing"
+                            : Hyprvoice.phase === "polishing" ? "Polishing"
+                            : dictationUI.working ? "Transcribing"
+                            : "Listening"
+                        animateDots: dictationUI.working || dictationUI.typing
+                        shimmer: dictationUI.working || dictationUI.typing
+                        baseColor: dictationUI.done ? dictationUI.okColor : IslandStyle.textColor
+                        pixelSize: Appearance.font.pixelSize.small
                     }
                 }
 
