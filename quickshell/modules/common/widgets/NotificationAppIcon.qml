@@ -68,7 +68,13 @@ MaterialShape { // App icon
                 anchors.fill: parent
                 readonly property int size: parent.width
 
-                source: root.image
+                // Notification images arrive as image://qsimage/<handle> — those
+                // handles die on hot-reload, and a dead source otherwise gets
+                // retried on every render pass (log spam + CPU). Blank it once
+                // the provider reports failure.
+                property bool broken: false
+                source: broken ? "" : root.image
+                onStatusChanged: if (status === Image.Error) broken = true
                 fillMode: Image.PreserveAspectCrop
                 cache: false
                 antialiasing: true

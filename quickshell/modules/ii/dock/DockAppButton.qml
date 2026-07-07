@@ -19,6 +19,18 @@ DockButton {
 
     readonly property bool isSeparator: appToplevel.appId === "SEPARATOR"
     property var desktopEntry: DesktopEntries.heuristicLookup(appToplevel.appId)
+
+    // Quickshell locks every window's app_id to "org.quickshell", so the dock can't
+    // tell our Agent Island launcher apart by app_id (it falls back to Quickshell's
+    // default green icon). Identify it by window title and use the bundled logo.
+    readonly property string customIconSource: {
+        if (appToplevel.appId !== "org.quickshell") return "";
+        const tls = appToplevel.toplevels ?? [];
+        for (let i = 0; i < tls.length; i++)
+            if ((tls[i].title ?? "").indexOf("Agent Island") !== -1)
+                return Qt.resolvedUrl("../agentIsland/assets/logo-256.png");
+        return "";
+    }
     enabled: !isSeparator
     implicitWidth: isSeparator ? 1 : implicitHeight - topInset - bottomInset
 
@@ -92,8 +104,27 @@ DockButton {
                 }
                 active: !root.isSeparator
                 sourceComponent: IconImage {
-                    source: Quickshell.iconPath(AppSearch.guessIcon(appToplevel.appId), "image-missing")
+                    id: dockIconImage
+                    // Hot-reload can race icon-theme/DesktopEntries init: guessIcon()
+                    // resolves once, comes back empty, and none of the lookups are
+                    // reactive — so the binding never re-fires and icons "vanish"
+                    // until the next reload. retryTick re-enters the binding until
+                    // resolution succeeds (or we give up after ~3s).
+                    property int retryTick: 0
+                    source: {
+                        const _ = dockIconImage.retryTick; // reactive retry hook
+                        return root.customIconSource !== "" ? root.customIconSource
+                            : Quickshell.iconPath(AppSearch.guessIcon(appToplevel.appId), "image-missing");
+                    }
                     implicitSize: root.iconSize
+                    Timer {
+                        interval: 500
+                        repeat: true
+                        running: dockIconImage.retryTick < 6
+                                 && (dockIconImage.source.toString() === ""
+                                     || dockIconImage.source.toString().includes("image-missing"))
+                        onTriggered: dockIconImage.retryTick++
+                    }
                 }
             }
 

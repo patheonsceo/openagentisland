@@ -68,6 +68,19 @@ ShellRoot {
         }
     }
 
+    // Live introspection: `qs -c openagentisland ipc call debug guessIcon kitty`
+    // (diagnose icon-resolution failures without restarting the shell)
+    IpcHandler {
+        target: "debug"
+
+        function guessIcon(appId: string): string {
+            return AppSearch.guessIcon(appId);
+        }
+        function iconPath(name: string): string {
+            return Quickshell.iconPath(name, true);
+        }
+    }
+
     GlobalShortcut {
         name: "panelFamilyCycle"
         description: "Cycles panel family"

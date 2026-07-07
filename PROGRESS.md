@@ -33,6 +33,42 @@ Re-test / swap commands:
 - Revert to ii: `pkill -f "qs -c openagentisland"; hyprctl dispatch exec "qs -c ii"`
 - Hooks: `python3 ~/Projects/openagentisland/bridge/install-hooks.py enable|disable|status`
 
+### ✅ PERF OVERHAUL (2026-07-07) — idle/working CPU cut ~4×, laptop was cooking at 92°C
+**Symptom:** shell + compositor burned ~1.1 cores 24/7 (qs 58% + Hyprland 56% of a
+core); package temp pinned at 92°C. **Root cause:** smooth `Infinite` animations on
+always-visible island content re-rendered the full-screen notch layer at panel
+refresh rate (90–100 fps) on ALL THREE monitors whenever any agent session existed —
+mascot resting bob, shimmer sweep (an OpacityMask shader pass per frame), and the
+working-bars `Behavior` tween retriggered every 170ms. **Fix — stepped pixel-art
+motion:** bob = 850ms discrete hop (Timer), bars snap (no tween), shimmer = 8
+timer-driven hops + parked hold, dots+shimmer share ONE ticker, spinner frame+bars
+share ONE tick (each unsynced timer forced its own compositor pass across all
+monitors). Launcher logo/sparkle/StarField animations gated on `win.visible`.
+**Measured: qs 58.4→13.6%, Hyprland 55.8→17.4% (working state; true idle ≈0).**
+Permission shake + done-hop stay smooth on purpose (brief, attention-grabbing).
+
+**Reload icon-vanish bug (dock showed blank buttons after hot-reload):** root-caused
+to Qt's in-process NEGATIVE icon cache — a hot reload re-queries dock icons while
+MaterialThemeLoader rewrites kdeglobals; lookups that land in that window fail and
+the failure is cached for the process lifetime (retries useless). Old icons (btop
+etc.) unaffected, only icons queried during the window (kitty, zen-browser).
+**Fix:** restart the shell (fresh process = clean cache); added a bounded retry in
+DockAppButton for genuinely transient races. Also: NotificationAppIcon now blanks
+dead `image://qsimage` handles on Image.Error (they die on every reload and
+otherwise retry-spam the log/CPU forever); new IPCs — `notifs clearAll` and
+`debug guessIcon/iconPath <name>` for live icon diagnosis; `?.` guard on
+notifications.forceMonitor (TypeError churn).
+
+**System side (not repo) — SOLVED same day:** the 92°C/throttling turned out to be
+the Acer EC's fan-mode register (0x45) sitting UNINITIALIZED on Linux (AcerSense
+writes 1/2/3 on Windows; 0 = no fan curve at all → fans never ramp). Fixed with
+`acer-fanmode.service` (+2min re-assert timer) writing 0x45=3 via ec_probe
+(nbfc-linux). Fan tach now ramps 3700→6250 RPM with heat; 92→66°C in 5s post-load;
+boost 1.9→3.4+ GHz. Power profile set to performance per user preference. Red
+herrings ruled out: acpitz=27.8°C is a firmware stub, paste/fans hardware fine,
+EC reset + DPTF active-policy UUID both no-ops. Full story in the memory file
+`laptop-fan-ec-quirk.md`.
+
 ### ✅ MULTI-MONITOR BLANKING — root cause found + fixed
 **Symptom (Path A switch, 3 monitors):** only the main external monitor worked;
 the laptop built-in and the vertical monitor went COMPLETELY BLANK (no wallpaper /
@@ -72,6 +108,139 @@ Toggle hooks for real Claude work (currently DISABLED):
 ---
 
 ## Done (newest first)
+
+- **2026-06-30 — Agent Island v3: radial menu, window chrome, new-project, Theo.**
+  Big interaction/feature pass (all loaded clean + screenshot-verified):
+  - `FolderRadialMenu.qml` (NEW): click a folder → it lifts to focus, the bg blurs
+    (contentRoot layer.effect MultiEffect, animated `blurAmt`), and 5 actions fan
+    out in a wave-staggered RING around it — Launch (primary), Launch from…, Open,
+    Settings, Remove. "Launch from…" swaps the ring for a subfolder picker
+    (store.loadSubdirs via find) so you choose the session's working dir.
+  - Window chrome: fullscreen toggle (FloatingWindow.fullscreen) + close (Qt.quit)
+    top-right. NOTE: minimize is NOT exposed by Quickshell's FloatingWindow API, so
+    it's omitted (only title/fullscreen/visible/color/minimumSize exist).
+  - New project: a "＋ New" tile → sheet to Create new (name + optional `git init`,
+    under ~/Projects) or Add existing (kdialog folder picker; stored as an "added"
+    flag in settings and merged into the grid via store.extraDirs).
+  - Theo = "just the voice": greeting + a "✦ Theo" line with rotating quips + live
+    session count; launch overlay now says "Theo's spinning up <x>…".
+  - FolderTile click now emits `activated()` (opens the menu) instead of launching;
+    gear removed (settings live in the ring). Store gained openFolder/removeRecent/
+    launchFrom/createProject/addExisting/addPath/loadSubdirs.
+
+- **2026-06-30 — SEVERE BUG FIXED: clicking a folder launched nothing.**
+  Symptom: click a project → animation plays, no terminal opens. Root cause:
+  Quickshell serves QML from a virtual qrc-like FS, so in ProjectsStore.qml
+  `Qt.resolvedUrl("../../../../bridge/launch-project.sh")` resolved to the bogus
+  `qrc:/qs-blackhole` (verified via a startup debug log) — `execDetached` ran a
+  nonexistent path and silently no-op'd while the QML launch overlay still played.
+  FIX: resolve the launcher from `Quickshell.shellDir` (the REAL on-disk config
+  dir) → `<shellDir>/../bridge/launch-project.sh`. Verified end-to-end: kitty
+  opens, tmux session created, exit 0. Hardening also added: launch-project.sh now
+  exports a sane PATH (GUI launchers hand a minimal one — claude lives in
+  ~/.npm-global/bin) and logs every invoke+exit to
+  $XDG_RUNTIME_DIR/agentisland-launch.log; ProjectsStore re-scans ~/Projects every
+  20s so deleted folders (e.g. geoscalar) don't linger as dead tiles.
+  Bug 2 (closed app → dead dock icon): Quickshell locks app_id to org.quickshell
+  and a qs --path app has no .desktop, so the dock can't relaunch a closed
+  instance. Added `bridge/install-app.sh` (installs agentisland.desktop + themed
+  icon) so it's launchable from the app grid / a keybind; documented the dock
+  limitation.
+
+- **2026-06-30 — Agent Island dock icon fix (custom logo in the dock).**
+  Quickshell locks every window's app_id to "org.quickshell" (FloatingWindow has no
+  icon/appId/startupClass prop; ShellId pragma doesn't change it either — verified),
+  so the island dock resolved our launcher to Quickshell's default green icon.
+  Fix in `modules/ii/dock/DockAppButton.qml`: `customIconSource` matches app_id
+  "org.quickshell" + a toplevel title containing "Agent Island" → uses bundled
+  `modules/ii/agentIsland/assets/logo-256.png`. VERIFIED in the live DP-3 dock.
+  NOTE: scoped to our dock only; alt-tab / external taskbars would still show the
+  default (would need a global org.quickshell.desktop icon override to fix).
+
+- **2026-06-30 — "Agent Island" v2 REDESIGN: welcoming full-screen launchpad.**
+  User feedback: v1 "mid"; wants a high-quality welcoming app (Claude-web vibe).
+  Rebuilt AgentIslandWindow.qml into a launchpad + added components & assets:
+  - Brand assets from ~/Downloads: `assets/icon*.png` (transparent A+star, header),
+    `assets/logo*.png` (black-square app icon), `assets/sparkle.png` (4-pt star,
+    SVG→PNG) for the live star animation.
+  - `StarField.qml` — live twinkling/rotating/drifting sparkles (GPU Image insts).
+  - `FolderTile.qml` — macOS folder (blue gradient + tab + gloss), soft drop
+    shadow (layer.effect MultiEffect), blurred aurora hover glow, live-session
+    dot, hover/press spring (OutBack), settings gear on hover.
+  - Window: aurora blob background (blue/green/magenta, MultiEffect blur) +
+    StarField; welcome header = floating logo + time-aware greeting "{greeting},
+    Kartik" + animated sparkle + rotating quirky subline + search; Recents row +
+    Projects Flow grid; centered settings sheet (sessions/mode/host) opened from
+    the gear; refined launch overlay (spinning sparkle + "Launching …").
+  - Name "Kartik" from GECOS. VERIFIED loads clean (no QML errors) + screenshot
+    looks premium. KNOWN: Lua-Hyprland tiles the toplevel (628px); hyprctl
+    keyword/dispatch no-op ("non-legacy parser, use eval") → needs a Lua
+    windowrule, OR convert to a fullscreen layer-shell overlay (pending decision).
+
+- **2026-06-30 — "Agent Island" app v1: mission-control launcher built + loads live.**
+  Standalone Quickshell app (decided: standalone native app via `qs --path`, which
+  reuses the shell's theme/widgets — verified `qs.` imports resolve under --path).
+  Run: `qs --path ~/Projects/openagentisland/quickshell/agentIsland.qml`.
+  - Files: `quickshell/agentIsland.qml` (entry, ShellRoot+FloatingWindow),
+    `modules/ii/agentIsland/AgentIslandWindow.qml` (mission-control UI),
+    `modules/ii/agentIsland/ProjectsStore.qml` (scan + tmux-live + persistence).
+  - UI: left = project list scanned from ~/Projects (avatars, live green tmux
+    dots, session-count chips, search filter); right = settings card (sessions
+    stepper 1-6, mode segmented bypass/default/plan/acceptEdits, host segmented
+    kitty/alacritty/warp) + big Launch button (→ Re-attach when live). Palette:
+    near-black + Material-You accent (Appearance.m3colors.m3primary), reuses
+    StyledText/MaterialSymbol.
+  - Settings persist to ~/.local/state/quickshell/user/agentisland-projects.json
+    (never re-prompted). "Running" state decoupled from the agent socket — read
+    from tmux (`tmux list-sessions`) polled every 4s, so it never contends with
+    the island shell that owns the socket. launch() shells to launch-project.sh.
+  - VERIFIED: loads clean (Configuration Loaded, no QML/type errors; only the
+    expected first-run FileNotFound → creates {}), window present in Hyprland.
+  - NEXT: new-project folder picker (add dirs outside ~/Projects), jump/focus a
+    running session's terminal, keybind + .desktop entry, real-app QA pass.
+
+- **2026-06-30 — "Agent Island" launcher: tmux session engine built + verified.**
+  New feature track (beyond phases 0-8): a project launcher that spins up
+  pre-configured Claude Code sessions per project. Engine-first per project ethos.
+  - `bridge/launch-project.sh` — parameterized: `--dir --name --sessions --mode
+    (bypass|default|plan|acceptEdits) --model --host (warp|kitty|alacritty|none)
+    --setup --claude-bin --dry-run`. tmux is the engine (persistence + tiled
+    panes + idempotent reattach); host terminal just runs `tmux attach`.
+  - Verified standalone (fake claude=sleep): N tiled panes each running the
+    command (pane_pid→child confirmed), idempotent re-run re-attaches without
+    duplicating panes, mode/model/setup flow through. Gotcha fixed: `send-keys`
+    races shell-rc load and drops keys → switched to pane START command
+    `claude …; exec $SHELL` (no race; pane drops to a shell if claude exits).
+  - Warp reality: Warp is single-instance, so `-e`/env don't propagate; only
+    Launch Configurations + `warp://` deeplinks route reliably. Script generates
+    `~/.warp/launch_configurations/agentisland-<name>.yaml` (pane runs tmux
+    attach); kitty/alacritty are the guaranteed one-click hosts. Binary probe
+    confirmed launch-config schema `windows→tabs→layout{cwd,split_direction,
+    panes,commands[exec]}` and `.yaml` dir.
+  - DECIDED: delivery = standalone native app (not an island surface); multi-
+    session layout = tiled panes; project source = all ~/Projects subfolders.
+    OPEN: app GUI tech stack.
+
+- **2026-06-30 — Right-island stats: CPU temperature + matching/clear icons.**
+  User reported the collapsed stats pill and its hover popup used MISMATCHED icons
+  and that the panel felt static ("values don't move"). Fixes:
+  - `ResourceUsage.qml`: added live CPU package temperature. `findTempProc` runs
+    ONCE at startup to discover the best sysfs file (Intel coretemp "Package id 0",
+    AMD k10temp/zenpower Tctl/Tdie, ARM cpu_thermal, then x86_pkg_temp/acpitz
+    thermal-zone fallbacks) → `cpuTempPath`; `fileTemp` FileView is re-read each
+    poll tick (no per-tick process spawn). `cpuTemperature` in °C, 0 = unsupported.
+    Verified discovery resolves to `/sys/class/hwmon/hwmon5/temp1_input` here.
+  - `IslandRight.qml`: new `device_thermostat` MetricRing in the stats pill (fills
+    toward 100°C; tints #FFB454 ≥70°C, #FF6B6B ≥85°C), plus a "Temp:" row in the
+    CPU popup column. Unified pill↔popup icons: CPU now `speed` in both (was
+    `speed`/`planner_review`), Battery now `battery_full` in both (was
+    `battery_full`/`battery_android_full`). Clarified value-row icons: Used →
+    `data_usage`, Total → `database` (were `clock_loader_60`/`empty_dashboard`).
+  - SWAP "frozen numbers" bug: this box runs zram swap with ~4 MB used, but the
+    popup formatted everything as GB@1-decimal → `4304 kB → "0.0 GB"`, so swap
+    Used never appeared to change. Added `ResourceUsage.kbToSizeString(kb)`
+    (adaptive MB<1GB / GB) and switched all RAM+Swap Used/Free/Total rows to it,
+    so sub-GB swap usage is shown in MB and visibly moves.
 
 - **2026-06-07 — CRITICAL GOTCHA: real desktop is a LUA-config Hyprland.** The
   standard dispatch form `Hyprland.dispatch("focuswindow address:…")` /

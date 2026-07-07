@@ -214,6 +214,15 @@ Singleton {
         root.discardAll();
     }
 
+    // Shell-side escape hatch: `qs -c openagentisland ipc call notifs clearAll`
+    // (handy when a reload leaves stale notifications with dead image handles)
+    IpcHandler {
+        target: "notifs"
+        function clearAll(): void {
+            root.discardAllNotifications();
+        }
+    }
+
     function cancelTimeout(id) {
         const index = root.list.findIndex((notif) => notif.notificationId === id);
         if (root.list[index] != null)
