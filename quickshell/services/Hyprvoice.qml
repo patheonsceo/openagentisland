@@ -53,18 +53,27 @@ Singleton {
     // Live mic levels (0..1) from cava while recording.
     property list<real> levels: []
 
+    // IDEMPOTENT on purpose: Hyprland can deliver DUPLICATE press/release events
+    // for a global shortcut (the press bind's key tracking releases it AND the
+    // explicit release bind fires). A duplicate release used to send a second
+    // toggle µs after the first — the daemon treats toggle-while-injecting as
+    // ABORT, which context-canceled the Groq upload mid-flight.
     function pttPressed() {
+        if (pttHeld)
+            return; // duplicate press
+        if (state !== "idle")
+            return; // previous run still finishing — don't abort it
         pttHeld = true;
         doneFlash = false;
-        if (state === "idle") {
-            state = "recording"; // optimistic — poll confirms
-            sawInjecting = false;
-        }
+        state = "recording"; // optimistic — poll confirms
+        sawInjecting = false;
         idleGrace = 4;
         Quickshell.execDetached(["hyprvoice", "toggle"]);
     }
 
     function pttReleased() {
+        if (!pttHeld)
+            return; // duplicate release (or release of an ignored press)
         pttHeld = false;
         if (state === "recording")
             state = "transcribing"; // optimistic
