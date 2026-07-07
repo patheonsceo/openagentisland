@@ -69,9 +69,14 @@ Item {
         interval: root.intervalFor(root.mode)
         running: root.animated
         repeat: true
-        onTriggered: root.frame = (root.frame + 1) % root.framesFor(root.mode).length
+        onTriggered: {
+            root.frame = (root.frame + 1) % root.framesFor(root.mode).length;
+            // bars advance on the SAME tick — two unsynchronized timers each force
+            // their own full compositor pass across every monitor; one shared tick
+            // batches them into a single damage event
+            if (root.showBars) root.barFrame = (root.barFrame + 1) % 4;
+        }
     }
-    Timer { interval: 170; running: root.animated && root.showBars; repeat: true; onTriggered: root.barFrame = (root.barFrame + 1) % 4 }
 
     function barH(i) {
         const tbl = [[0.35, 0.85, 0.30], [0.85, 0.40, 0.70], [0.50, 1.00, 0.40], [1.00, 0.30, 0.80]];
@@ -79,22 +84,27 @@ Item {
     }
 
     // ---------- per-state motion ----------
+    // Perf: the resting bob used to be a smooth Infinite tween — that damages the
+    // (blurred, full-screen) notch layer at panel refresh rate (90-100 fps) on every
+    // monitor for as long as ANY session exists. A discrete pixel hop reads the same
+    // in 8x8 pixel-art and costs ~1 repaint/sec instead of ~90. Done-hop and
+    // permission-shake stay smooth: they're brief and meant to grab attention.
     property real motionX: 0
     property real motionY: 0
     onModeChanged: { root.motionX = 0; root.motionY = 0; }
 
-    SequentialAnimation on motionY { // celebrate hop (done)
+    Timer { // gentle stepped bob (resting + calm waiting)
+        interval: 850
+        running: root.animated && (root.mode === "running" || root.mode === "idle" || root.mode === "waiting")
+        repeat: true
+        onTriggered: root.motionY = root.motionY === 0 ? -root.pixel : 0
+    }
+    SequentialAnimation on motionY { // celebrate hop (done) — transient (~5s linger)
         running: root.animated && root.mode === "done"
         loops: Animation.Infinite
         NumberAnimation { from: 0; to: -5 * root.pixel; duration: 200; easing.type: Easing.OutQuad }
         NumberAnimation { from: -5 * root.pixel; to: 0; duration: 260; easing.type: Easing.OutBounce }
         PauseAnimation { duration: 280 }
-    }
-    SequentialAnimation on motionY { // gentle bob (resting + calm waiting)
-        running: root.animated && (root.mode === "running" || root.mode === "idle" || root.mode === "waiting")
-        loops: Animation.Infinite
-        NumberAnimation { from: 0; to: -1.5 * root.pixel; duration: 850; easing.type: Easing.InOutSine }
-        NumberAnimation { from: -1.5 * root.pixel; to: 0; duration: 850; easing.type: Easing.InOutSine }
     }
     SequentialAnimation on motionX { // alert shake (permission only)
         running: root.animated && root.mode === "permission"
@@ -160,8 +170,11 @@ Item {
                         width: parent.width
                         radius: width / 2
                         color: root.tint
+                        // Stepped on purpose (no Behavior tween): the 170ms bar timer
+                        // retriggering a 160ms tween meant continuous vsync damage the
+                        // whole time a session is "working" — i.e. hours. Snapping at
+                        // ~6fps matches the pixel-equalizer look.
                         height: Math.max(root.pixel, parent.height * root.barH(parent.index))
-                        Behavior on height { NumberAnimation { duration: 160; easing.type: Easing.OutQuad } }
                     }
                 }
             }
