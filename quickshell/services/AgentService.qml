@@ -133,8 +133,13 @@ Singleton {
     readonly property int _waitDemoteTicks: 60    // "waiting" → calm resting after ~1 min
     readonly property int _stalenessTicks: 300    // no events for ~5 min → ghost session, prune
     Timer {
+        // Only tick while there's at least one session to age/prune. With no
+        // sessions this loop did nothing useful but still rewrote `now` every
+        // second, invalidating every relative-time binding downstream. The last
+        // session's own pruning keeps sessionCount > 0 until it's removed, then
+        // the timer goes quiet.
         interval: 1000
-        running: true
+        running: root.sessionCount > 0
         repeat: true
         onTriggered: {
             root._tick++;

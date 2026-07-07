@@ -21,6 +21,10 @@ Singleton {
     property real swapUsedPercentage: swapTotal > 0 ? (swapUsed / swapTotal) : 0
     property real cpuUsage: 0
     property var previousCpuStats
+    // CPU package temperature in °C (0 = no sensor discovered yet / unsupported).
+    // cpuTempPath is the sysfs file (millidegrees) found once by findTempProc below.
+    property real cpuTemperature: 0
+    property string cpuTempPath: ""
 
     property string maxAvailableMemoryString: kbToGbString(ResourceUsage.memoryTotal)
     property string maxAvailableSwapString: kbToGbString(ResourceUsage.swapTotal)
@@ -33,6 +37,15 @@ Singleton {
 
     function kbToGbString(kb) {
         return (kb / (1024 * 1024)).toFixed(1) + " GB";
+    }
+
+    // Adaptive size string: shows MB below 1 GB, GB above. Fixes "frozen" readouts
+    // for zram/zswap swap, where usage lives in the low-MB range and GB@1-decimal
+    // always rounds to "0.0 GB" even as the real value moves.
+    function kbToSizeString(kb) {
+        const mb = kb / 1024;
+        if (mb < 1024) return mb.toFixed(mb < 100 ? 1 : 0) + " MB";
+        return (mb / 1024).toFixed(1) + " GB";
     }
 
     function updateMemoryUsageHistory() {
@@ -92,6 +105,13 @@ Singleton {
                 previousCpuStats = { total, idle }
             }
 
+            // Parse CPU temperature (sysfs reports millidegrees → °C).
+            if (root.cpuTempPath.length > 0) {
+                fileTemp.reload()
+                const milli = Number(fileTemp.text())
+                if (milli > 0) cpuTemperature = milli / 1000
+            }
+
             root.updateHistories()
             interval = Config.options?.resources?.updateInterval ?? 3000
         }
@@ -99,6 +119,50 @@ Singleton {
 
 	FileView { id: fileMeminfo; path: "/proc/meminfo" }
     FileView { id: fileStat; path: "/proc/stat" }
+    FileView { id: fileTemp; path: root.cpuTempPath }
+
+    // Discover the best CPU-temperature sysfs file ONCE at startup, then read it
+    // cheaply via fileTemp each tick (no per-tick process spawn). Prefers the CPU
+    // package sensor across Intel (coretemp "Package id 0"), AMD (k10temp/zenpower
+    // Tctl/Tdie) and ARM (cpu_thermal); falls back to the x86_pkg_temp / acpitz
+    // thermal zone so it degrades gracefully on unknown hardware.
+    Process {
+        id: findTempProc
+        environment: ({ LANG: "C", LC_ALL: "C" })
+        command: ["bash", "-c", `
+            for d in /sys/class/hwmon/hwmon*; do
+              [ -r "$d/name" ] || continue
+              case "$(cat "$d/name")" in
+                coretemp|k10temp|k8temp|zenpower|cpu_thermal)
+                  for lbl in "$d"/temp*_label; do
+                    [ -e "$lbl" ] || continue
+                    case "$(cat "$lbl")" in
+                      "Package id 0"|Tctl|Tdie|Tccd1)
+                        inp="\${lbl%_label}_input"
+                        [ -r "$inp" ] && { echo "$inp"; exit 0; } ;;
+                    esac
+                  done
+                  [ -r "$d/temp1_input" ] && { echo "$d/temp1_input"; exit 0; } ;;
+              esac
+            done
+            for z in /sys/class/thermal/thermal_zone*; do
+              [ -r "$z/type" ] || continue
+              case "$(cat "$z/type")" in
+                x86_pkg_temp|cpu-thermal|cpu_thermal|TCPU)
+                  echo "$z/temp"; exit 0 ;;
+              esac
+            done
+            [ -r /sys/class/thermal/thermal_zone0/temp ] && echo /sys/class/thermal/thermal_zone0/temp
+        `]
+        running: true
+        stdout: StdioCollector {
+            id: tempCollector
+            onStreamFinished: {
+                const p = tempCollector.text.trim()
+                if (p.length > 0) root.cpuTempPath = p
+            }
+        }
+    }
 
     Process {
         id: findCpuMaxFreqProc

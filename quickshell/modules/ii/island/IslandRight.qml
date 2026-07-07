@@ -122,6 +122,16 @@ Scope {
                         }
                         MetricRing {
                             Layout.alignment: Qt.AlignVCenter
+                            visible: ResourceUsage.cpuTemperature > 0
+                            icon: "device_thermostat"
+                            // Ring fills toward 100°C; warm/hot thresholds tint it.
+                            value: Math.min(ResourceUsage.cpuTemperature / 100, 1)
+                            ringColor: ResourceUsage.cpuTemperature >= 85 ? "#FF6B6B"
+                                : ResourceUsage.cpuTemperature >= 70 ? "#FFB454"
+                                : IslandStyle.textColor
+                        }
+                        MetricRing {
+                            Layout.alignment: Qt.AlignVCenter
                             visible: Battery.available
                             icon: Battery.isCharging ? "bolt" : "battery_full"
                             value: Battery.percentage
@@ -141,9 +151,9 @@ Scope {
                                 StyledPopupHeaderRow { icon: "memory"; label: "RAM" }
                                 Column {
                                     spacing: 4
-                                    StyledPopupValueRow { icon: "clock_loader_60"; label: Translation.tr("Used:"); value: (ResourceUsage.memoryUsed / 1048576).toFixed(1) + " GB" }
-                                    StyledPopupValueRow { icon: "check_circle"; label: Translation.tr("Free:"); value: (ResourceUsage.memoryFree / 1048576).toFixed(1) + " GB" }
-                                    StyledPopupValueRow { icon: "empty_dashboard"; label: Translation.tr("Total:"); value: (ResourceUsage.memoryTotal / 1048576).toFixed(1) + " GB" }
+                                    StyledPopupValueRow { icon: "data_usage"; label: Translation.tr("Used:"); value: ResourceUsage.kbToSizeString(ResourceUsage.memoryUsed) }
+                                    StyledPopupValueRow { icon: "check_circle"; label: Translation.tr("Free:"); value: ResourceUsage.kbToSizeString(ResourceUsage.memoryFree) }
+                                    StyledPopupValueRow { icon: "database"; label: Translation.tr("Total:"); value: ResourceUsage.kbToSizeString(ResourceUsage.memoryTotal) }
                                 }
                             }
                             Column {
@@ -152,23 +162,29 @@ Scope {
                                 StyledPopupHeaderRow { icon: "swap_horiz"; label: "Swap" }
                                 Column {
                                     spacing: 4
-                                    StyledPopupValueRow { icon: "clock_loader_60"; label: Translation.tr("Used:"); value: (ResourceUsage.swapUsed / 1048576).toFixed(1) + " GB" }
-                                    StyledPopupValueRow { icon: "check_circle"; label: Translation.tr("Free:"); value: (ResourceUsage.swapFree / 1048576).toFixed(1) + " GB" }
-                                    StyledPopupValueRow { icon: "empty_dashboard"; label: Translation.tr("Total:"); value: (ResourceUsage.swapTotal / 1048576).toFixed(1) + " GB" }
+                                    StyledPopupValueRow { icon: "data_usage"; label: Translation.tr("Used:"); value: ResourceUsage.kbToSizeString(ResourceUsage.swapUsed) }
+                                    StyledPopupValueRow { icon: "check_circle"; label: Translation.tr("Free:"); value: ResourceUsage.kbToSizeString(ResourceUsage.swapFree) }
+                                    StyledPopupValueRow { icon: "database"; label: Translation.tr("Total:"); value: ResourceUsage.kbToSizeString(ResourceUsage.swapTotal) }
                                 }
                             }
                             Column {
                                 spacing: 8
-                                StyledPopupHeaderRow { icon: "planner_review"; label: "CPU" }
+                                StyledPopupHeaderRow { icon: "speed"; label: "CPU" }
                                 Column {
                                     spacing: 4
                                     StyledPopupValueRow { icon: "bolt"; label: Translation.tr("Load:"); value: `${Math.round(ResourceUsage.cpuUsage * 100)}%` }
+                                    StyledPopupValueRow {
+                                        visible: ResourceUsage.cpuTemperature > 0
+                                        icon: "device_thermostat"
+                                        label: Translation.tr("Temp:")
+                                        value: `${Math.round(ResourceUsage.cpuTemperature)}°C`
+                                    }
                                 }
                             }
                             Column {
                                 visible: Battery.available
                                 spacing: 8
-                                StyledPopupHeaderRow { icon: "battery_android_full"; label: Translation.tr("Battery") }
+                                StyledPopupHeaderRow { icon: "battery_full"; label: Translation.tr("Battery") }
                                 Column {
                                     spacing: 4
                                     StyledPopupValueRow { icon: "battery_full"; label: Translation.tr("Level:"); value: `${Math.round(Battery.percentage * 100)}%` }

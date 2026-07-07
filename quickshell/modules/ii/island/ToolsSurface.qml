@@ -25,8 +25,13 @@ FocusScope {
         command: ["pgrep", "-x", "wf-recorder"]
         onExited: code => surf.recording = (code === 0)
     }
-    Timer { interval: 1500; running: true; repeat: true; onTriggered: recCheck.running = true }
-    Component.onCompleted: recCheck.running = true
+    // Only poll for an externally-stopped recording while the tools surface is
+    // actually on screen. When the popup is closed there's nothing to update, so
+    // the always-on pgrep spawn is pure waste. (toggleRecord() also re-checks
+    // immediately, so the in-surface state stays correct without constant polling.)
+    Timer { interval: 1500; running: surf.visible; repeat: true; onTriggered: recCheck.running = true }
+    onVisibleChanged: if (visible) recCheck.running = true
+    Component.onCompleted: if (visible) recCheck.running = true
 
     // Close the island first (so it isn't in the shot), then capture after a beat.
     function shoot(mode) {

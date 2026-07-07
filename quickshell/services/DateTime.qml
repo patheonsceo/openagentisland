@@ -26,7 +26,7 @@ Singleton {
     property string uptime: "0h, 0m"
 
     Timer {
-        interval: 10
+        interval: 60000
         running: true
         repeat: true
         onTriggered: {
@@ -48,7 +48,6 @@ Singleton {
             if (minutes > 0 || !formatted)
                 formatted += `${formatted ? ", " : ""}${minutes}m`;
             uptime = formatted;
-            interval = Config.options?.resources?.updateInterval ?? 3000;
         }
     }
 

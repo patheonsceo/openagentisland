@@ -54,9 +54,23 @@ Rectangle {
             }
         }
     }
-    Timer { interval: 1000; running: true; repeat: true; triggeredOnStart: true; onTriggered: netProc.running = true }
+    // Rates are only ever shown on hover, so only sample /proc/net/dev while
+    // hovered. Idle cost is zero (no per-second process spawn). On un-hover we
+    // reset the baseline so the first sample on the next hover re-baselines
+    // instead of showing a bogus spike accumulated over the idle gap.
+    Timer { interval: 1000; running: hover.hovered; repeat: true; triggeredOnStart: true; onTriggered: netProc.running = true }
 
-    HoverHandler { id: hover }
+    HoverHandler {
+        id: hover
+        onHoveredChanged: {
+            if (!hovered) {
+                root.lastRx = -1;
+                root.lastTx = -1;
+                root.rxRate = 0;
+                root.txRate = 0;
+            }
+        }
+    }
 
     RowLayout {
         id: content
