@@ -38,6 +38,24 @@ mid-run to cancel.
   so Right Ctrl is the hold key (consumed; use Left Ctrl for shortcuts).
   Headless fallback binds (`qs ipc TEST_ALIVE || hyprvoice toggle`) keep
   dictation alive if quickshell is down.
+- **Gotcha (fixed, `7764bb9`):** Hyprland delivers DUPLICATE release events for
+  the global shortcut (press-bind key tracking + explicit release bind). The
+  second release sent a second `toggle` µs after the first → daemon treats
+  toggle-while-injecting as ABORT → "context canceled" on the Groq POST.
+  `pttPressed`/`pttReleased` are now idempotent (guarded on `pttHeld`/idle).
+  Upstream's `workspaceNumber` never hit this because its handler is an
+  idempotent bool.
+- **Gotcha:** a quickshell hot reload can silently NOT apply (old code keeps
+  running, no visible panel) — PROBE behavior after service edits (e.g. lone
+  `ipc call hyprvoice pttRelease` must leave the daemon idle) instead of
+  trusting the reload. Restart fallback: `setsid -f qs -c openagentisland
+  </dev/null >/tmp/oai.log 2>&1`. Careful: `pkill -f "qs -c openagentisland"`
+  from an agent shell can match the AGENT'S OWN wrapper cmdline and
+  self-terminate — use a self-safe pattern like `[q]s -c openagentisland`.
+- Full E2E verified after fix: forced duplicate release via IPC → single
+  inject action, "transcription completed", "Text injection completed
+  successfully", daemon idle. Real mic audio transcribed and typed into a
+  scratch window.
 
 ## Current phase & status
 
