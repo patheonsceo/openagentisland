@@ -5,6 +5,22 @@ lives in `NOTES.md`.
 
 ---
 
+## 2026-07-09 — Ghost dictation activations: tap-guard + stuck-press cancel
+
+User reported random "Listening" pills with no key press. Journal showed
+press-only Control_R events starting runs (pttHeld stuck true), later aborted
+mid-upload. RCTRL-capable devices on this box: AT keyboard, **2.4G wireless
+dongle (top suspect)**, ydotoold virtual, vicinae-snippet-virtual-keyboard —
+virtual keyboards + flaky dongles can synthesize Control_R. Defenses
+(`f23d265`): daemon toggle only after **200ms hold** (synthetic taps do
+nothing — verified: 34ms tap ignored, no pill, no daemon call), **120s
+stuck-press auto-cancel** (ghost hold can no longer inject hallucinated
+"Thank you"-style text), PTT event log at `/tmp/hyprvoice-ptt.log`, and a
+detached per-device RCTRL monitor (`/tmp/rctrl-monitor.py` →
+`/tmp/rctrl-events.log`, relaunch after reboot) to name the culprit device on
+next occurrence. E2E re-verified: arm at +202ms, hold-release transcribed,
+no aborts.
+
 ## 2026-07-07 — Voice dictation in the notch (hyprvoice push-to-talk)
 
 New notch surface: hold **Right Ctrl** → notch morphs into a dictation pill
