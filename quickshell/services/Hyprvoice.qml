@@ -48,6 +48,21 @@ Singleton {
         return "transcribing"; // recording|transcribing after release → STT running
     }
 
+    // Tap-guard: the daemon toggle is only sent once the key has been held
+    // ARM_MS — virtual keyboards on this system (vicinae snippets, ydotoold)
+    // and flaky 2.4G dongles can synthesize brief phantom Control_R events,
+    // which used to start ghost "listening" runs. A sub-ARM_MS tap now does
+    // NOTHING (no pill, no daemon run). See /tmp/hyprvoice-ptt.log +
+    // /tmp/rctrl-events.log for the diagnostics trail.
+    readonly property int armMs: 200
+    // Toggle actually sent to the daemon for the current hold.
+    property bool armed: false
+    property double pressedAtMs: 0
+
+    function plog(msg) {
+        Quickshell.execDetached(["sh", "-c", "printf '%s %s\\n' \"$(date '+%F %T.%3N')\" \"$1\" >> /tmp/hyprvoice-ptt.log", "plog", msg]);
+    }
+
     // IDEMPOTENT on purpose: Hyprland can deliver DUPLICATE press/release events
     // for a global shortcut (the press bind's key tracking releases it AND the
     // explicit release bind fires). A duplicate release used to send a second
@@ -59,29 +74,67 @@ Singleton {
         if (state !== "idle")
             return; // previous run still finishing — don't abort it
         pttHeld = true;
-        doneFlash = false;
-        state = "recording"; // optimistic — poll confirms
-        sawInjecting = false;
-        idleGrace = 4;
-        Quickshell.execDetached(["hyprvoice", "toggle"]);
+        pressedAtMs = Date.now();
+        armed = false;
+        armTimer.restart();
+        plog("press");
     }
 
     function pttReleased() {
         if (!pttHeld)
             return; // duplicate release (or release of an ignored press)
         pttHeld = false;
+        const heldMs = Math.round(Date.now() - pressedAtMs);
+        if (!armed) {
+            armTimer.stop();
+            plog(`ghost tap ignored (${heldMs}ms)`);
+            return; // never reached the daemon — nothing to undo
+        }
+        armed = false;
         if (state === "recording")
             state = "transcribing"; // optimistic
         idleGrace = 4;
         Quickshell.execDetached(["hyprvoice", "toggle"]);
+        plog(`release -> transcribe (held ${heldMs}ms)`);
+    }
+
+    Timer {
+        id: armTimer
+        interval: root.armMs
+        onTriggered: {
+            if (!root.pttHeld || root.state !== "idle")
+                return;
+            root.armed = true;
+            root.doneFlash = false;
+            root.state = "recording"; // optimistic — poll confirms
+            root.sawInjecting = false;
+            root.idleGrace = 4;
+            Quickshell.execDetached(["hyprvoice", "toggle"]);
+            root.plog("armed -> recording");
+        }
+    }
+
+    // A press that never releases (stuck virtual/wireless key) would record
+    // forever and eventually inject hallucinated text — cancel it instead.
+    // Legit dictations are re-pressable; hyprvoice's own cap is 5m and INJECTS.
+    Timer {
+        interval: 120000
+        running: root.armed && root.pttHeld
+        onTriggered: {
+            root.plog("stuck press: auto-cancel after 120s");
+            root.cancel();
+        }
     }
 
     function cancel() {
         Quickshell.execDetached(["hyprvoice", "cancel"]);
         pttHeld = false;
+        armed = false;
+        armTimer.stop();
         idleGrace = 0;
         doneFlash = false;
         state = "idle";
+        plog("cancel");
     }
 
     function applyStatus(out) {
