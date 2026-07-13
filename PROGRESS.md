@@ -5,6 +5,30 @@ lives in `NOTES.md`.
 
 ---
 
+## 2026-07-13 — Notch on laptop screen only (config-driven) + perf tuning
+
+Investigating "YouTube lags on CachyOS": hardware video decode in Zen verified
+fine (RDD process shows `drm-engine-video` activity); real causes were thermals
+(package at 92–96°C, power profile pinned to `performance`) and constant repaint
+overhead — the notch animates on ALL monitors (agent shimmer, cava, morphs), and
+freezing qs dropped Hyprland CPU 13.5%→7%.
+
+- **New config option `island.notchScreenList`** (Config.qml, default `[]` = all
+  screens, same pattern as `bar.screenList`). `IslandNotch.qml` filters its
+  `Variants` model through it; the user's machine sets `["eDP-1"]` in
+  `~/.config/illogical-impulse/config.json` → notch only on the laptop screen.
+  Left/right islands and the `islandReserve` strip stay on every monitor.
+- Safety: if none of the listed outputs are connected (lid closed), falls back
+  to all screens — the notch carries agent permissions and must never vanish.
+  `focusedScreenName()` now clamps auto-open routing (permission arrivals) to
+  screens that actually have a notch; click-to-open was already safe (a click
+  can only come from an existing notch).
+- Perf: cava visualizer 60fps→30fps, 50→36 bars (`scripts/cava/raw_output_config.txt`).
+  Outside the repo: Hyprland shadows range 20→12 / render_power→2, power profile
+  performance→balanced.
+- Verified live via `hyprctl layers`: notch layer only on eDP-1; left/right/reserve
+  on all three monitors; hot reload clean, no QML errors.
+
 ## 2026-07-09 — Right island clock: hover popup with IST + SF time, click to switch
 
 Hovering the clock pill (`IslandRight.qml`) shows an `IslandPopup` with two

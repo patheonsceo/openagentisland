@@ -1,8 +1,8 @@
 [general]
 mode = waves
-framerate = 60
+framerate = 30
 autosens = 1
-bars = 50
+bars = 36
 
 [output]
 method = raw

@@ -93,13 +93,27 @@ Scope {
         }
     }
 
+    // Screens that get a notch (Config island.notchScreenList, empty = all).
+    // If none of the listed outputs are connected (e.g. lid closed), fall back
+    // to all screens — the notch carries agent permissions and must never vanish.
+    readonly property var notchScreens: {
+        const screens = Quickshell.screens;
+        const list = Config.options.island.notchScreenList;
+        if (!list || list.length === 0)
+            return screens;
+        const filtered = screens.filter(s => list.includes(s.name));
+        return filtered.length > 0 ? filtered : screens;
+    }
+
     // The monitor that currently has keyboard focus — where auto-opened surfaces
-    // (e.g. an incoming permission) should appear. Falls back to the first screen.
+    // (e.g. an incoming permission) should appear. Clamped to screens that have
+    // a notch; falls back to the first of those.
     function focusedScreenName() {
+        const names = root.notchScreens.map(s => s.name ?? "");
         const n = Hyprland.focusedMonitor?.name ?? "";
-        if (n.length > 0)
+        if (n.length > 0 && names.includes(n))
             return n;
-        return Quickshell.screens.length > 0 ? (Quickshell.screens[0].name ?? "") : "";
+        return names.length > 0 ? names[0] : "";
     }
 
     // Permission is top-priority + sticky: auto-open the agent surface when a
@@ -116,7 +130,7 @@ Scope {
     }
 
     Variants {
-        model: Quickshell.screens
+        model: root.notchScreens
 
         PanelWindow {
             id: notchWindow

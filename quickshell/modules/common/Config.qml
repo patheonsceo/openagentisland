@@ -334,6 +334,12 @@ Singleton {
                 property list<string> ignoredAppRegexes: []
             }
 
+            property JsonObject island: JsonObject {
+                // Screens the center notch renders on (names like "eDP-1", see 'hyprctl monitors').
+                // Empty = all screens. Left/right islands always render on every screen.
+                property list<string> notchScreenList: []
+            }
+
             property JsonObject interactions: JsonObject {
                 property JsonObject scrolling: JsonObject {
                     property bool fasterTouchpadScroll: false // Enable faster scrolling with touchpad
@@ -564,6 +570,7 @@ Singleton {
             property JsonObject time: JsonObject {
                 // https://doc.qt.io/qt-6/qtime.html#toString
                 property string format: "hh:mm"
+                property string islandClockZone: "ist" // Right island clock pill: "ist" (local) or "sf" (US Pacific)
                 property string shortDateFormat: "dd/MM"
                 property string dateWithYearFormat: "dd/MM/yyyy"
                 property string dateFormat: "ddd, dd/MM"
