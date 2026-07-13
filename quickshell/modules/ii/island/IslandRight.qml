@@ -15,7 +15,7 @@ import Quickshell.Services.SystemTray
 //   1) stats   — CPU / RAM / SWAP / battery rings (hover → combined tooltip).
 //   2) tray    — system tray (only when there are items).
 //   3) control — performance toggle + settings gear (gear → right sidebar).
-//   4) clock   — 12-hour time, small.
+//   4) clock   — 12-hour time, small (hover → IST + SF popup; click a row to pick the pill's zone).
 //   5) power   — circular session/power button.
 // Styled via shared IslandStyle.
 Scope {
@@ -299,18 +299,125 @@ Scope {
                     }
                 }
 
-                // ---- Pill 5: clock (12-hour, small) ----
+                // ---- Pill 5: clock (12-hour, small; hover → IST + SF times, click a row to pick which the pill shows) ----
                 Pill {
                     id: clockPill
                     height: parent.height
                     width: clockText.implicitWidth + IslandStyle.hPadding * 2
 
+                    // Which zone the pill displays; persisted in the shell config.
+                    readonly property string zone: Config.options?.time.islandClockZone ?? "ist"
+
+                    // US Pacific from UTC: -8h standard, -7h during DST
+                    // (2nd Sunday of March 10:00 UTC → 1st Sunday of November 9:00 UTC).
+                    function sfDate(now) {
+                        const year = now.getUTCFullYear();
+                        const marchFirstDow = new Date(Date.UTC(year, 2, 1)).getUTCDay();
+                        const dstStart = Date.UTC(year, 2, 8 + ((7 - marchFirstDow) % 7), 10);
+                        const novFirstDow = new Date(Date.UTC(year, 10, 1)).getUTCDay();
+                        const dstEnd = Date.UTC(year, 10, 1 + ((7 - novFirstDow) % 7), 9);
+                        const t = now.getTime();
+                        const offsetHours = (t >= dstStart && t < dstEnd) ? -7 : -8;
+                        return new Date(t + offsetHours * 3600000);
+                    }
+                    // 12-hour string from a date's UTC fields (sfDate pre-shifts into SF time).
+                    function twelveHourUtc(d) {
+                        const h24 = d.getUTCHours();
+                        const h = h24 % 12 === 0 ? 12 : h24 % 12;
+                        return `${h}:${String(d.getUTCMinutes()).padStart(2, "0")} ${h24 >= 12 ? "PM" : "AM"}`;
+                    }
+
                     StyledText {
                         id: clockText
                         anchors.centerIn: parent
-                        text: Qt.locale().toString(DateTime.clock.date, "h:mm AP")
+                        text: clockPill.zone === "sf"
+                            ? "SF " + clockPill.twelveHourUtc(clockPill.sfDate(DateTime.clock.date))
+                            : Qt.locale().toString(DateTime.clock.date, "h:mm AP")
                         font.pixelSize: Appearance.font.pixelSize.smaller
-                        color: IslandStyle.textColor
+                        color: clockHover.hovered ? IslandStyle.accent : IslandStyle.textColor
+                        Behavior on color { ColorAnimation { duration: 150; easing.type: Easing.OutQuad } }
+                    }
+
+                    HoverHandler { id: clockHover }
+
+                    IslandPopup {
+                        anchorItem: clockPill
+                        shouldShow: clockHover.hovered
+                        interactive: true
+                        contentComponent: Component {
+                            ColumnLayout {
+                                spacing: 2
+
+                                Repeater {
+                                    model: [
+                                        { zone: "ist", icon: "home", label: "IST" },
+                                        { zone: "sf", icon: "location_on", label: "SF" }
+                                    ]
+
+                                    delegate: Rectangle {
+                                        id: zoneRow
+                                        required property var modelData
+                                        readonly property bool active: clockPill.zone === modelData.zone
+                                        readonly property string timeText: {
+                                            if (modelData.zone !== "sf")
+                                                return Qt.locale().toString(DateTime.clock.date, "h:mm AP");
+                                            const sf = clockPill.sfDate(DateTime.clock.date);
+                                            const time = clockPill.twelveHourUtc(sf);
+                                            if (sf.getUTCDay() === DateTime.clock.date.getDay())
+                                                return time;
+                                            const day = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][sf.getUTCDay()];
+                                            return `${time} (${day})`;
+                                        }
+
+                                        Layout.fillWidth: true
+                                        implicitWidth: zoneRowContent.implicitWidth + 20
+                                        implicitHeight: zoneRowContent.implicitHeight + 12
+                                        radius: 8
+                                        color: zoneRowHover.hovered ? Qt.rgba(1, 1, 1, 0.09) : "transparent"
+                                        Behavior on color { ColorAnimation { duration: 120; easing.type: Easing.OutQuad } }
+
+                                        RowLayout {
+                                            id: zoneRowContent
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            anchors.left: parent.left
+                                            anchors.right: parent.right
+                                            anchors.leftMargin: 10
+                                            anchors.rightMargin: 10
+                                            spacing: 6
+
+                                            MaterialSymbol {
+                                                text: zoneRow.modelData.icon
+                                                iconSize: Appearance.font.pixelSize.large
+                                                color: zoneRow.active ? IslandStyle.accent : Appearance.colors.colOnSurfaceVariant
+                                            }
+                                            StyledText {
+                                                text: zoneRow.modelData.label
+                                                color: zoneRow.active ? IslandStyle.accent : Appearance.colors.colOnSurfaceVariant
+                                            }
+                                            StyledText {
+                                                Layout.fillWidth: true
+                                                Layout.leftMargin: 8
+                                                horizontalAlignment: Text.AlignRight
+                                                text: zoneRow.timeText
+                                                color: zoneRow.active ? IslandStyle.accent : Appearance.colors.colOnSurfaceVariant
+                                            }
+                                            MaterialSymbol {
+                                                text: "check"
+                                                iconSize: Appearance.font.pixelSize.large
+                                                color: IslandStyle.accent
+                                                opacity: zoneRow.active ? 1 : 0
+                                                Behavior on opacity { NumberAnimation { duration: 120 } }
+                                            }
+                                        }
+
+                                        HoverHandler { id: zoneRowHover; cursorShape: Qt.PointingHandCursor }
+                                        TapHandler {
+                                            onTapped: Config.options.time.islandClockZone = zoneRow.modelData.zone
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
 

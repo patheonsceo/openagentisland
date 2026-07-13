@@ -5,6 +5,26 @@ lives in `NOTES.md`.
 
 ---
 
+## 2026-07-09 — Right island clock: hover popup with IST + SF time, click to switch
+
+Hovering the clock pill (`IslandRight.qml`) shows an `IslandPopup` with two
+rows: **IST** (local, `h:mm AP`) and **SF** (US Pacific, 12-hour). Clicking a
+row switches which zone the pill itself displays (SF mode shows "SF 9:11 AM");
+choice persists via new `time.islandClockZone` config option ("ist"|"sf",
+written through Config's JsonAdapter). Active row is accent-tinted with a
+check; rows tint on hover, pointer cursor.
+
+- SF time computed in JS from UTC with the US DST rule (2nd Sun Mar 10:00 UTC
+  → 1st Sun Nov 9:00 UTC → UTC-7, else UTC-8) — no subprocess, reactive off
+  `DateTime.clock.date`. When SF's calendar day differs from local (most IST
+  mornings), the row appends the SF weekday, e.g. "9:11 PM (Tue)".
+- `IslandPopup` gained opt-in `interactive: true`: a HoverHandler on the popup
+  body keeps it open while the cursor is over it (`effectiveShow =
+  shouldShow || contentHovered`), so content can take clicks; the existing
+  220ms keep-alive timer covers the anchor→popup gap traversal. Stats pill
+  popup unchanged (only user of IslandPopup besides the clock).
+- Verified: live shell hot-reloaded clean (no QML errors in `qs log`).
+
 ## 2026-07-09 — Ghost dictation activations: tap-guard + stuck-press cancel
 
 User reported random "Listening" pills with no key press. Journal showed

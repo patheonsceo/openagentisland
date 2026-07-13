@@ -8,7 +8,9 @@ import Quickshell
 // content is provided as a `contentComponent` and instantiated fresh inside each
 // popup (no shared-item reparenting, which was rendering empty boxes). A keep-alive
 // timer holds the window open through the slide+fade exit. Drive `shouldShow` from
-// a HoverHandler.
+// a HoverHandler. Set `interactive: true` for popups with clickable content —
+// the popup then also stays open while the cursor is over it (the keep-alive
+// timer covers the anchor→popup gap traversal).
 Item {
     id: root
     property Item anchorItem
@@ -16,10 +18,13 @@ Item {
     property Component contentComponent
     property real padding: 12
     property real gap: 8
+    property bool interactive: false
+    property bool contentHovered: false
+    readonly property bool effectiveShow: shouldShow || (interactive && contentHovered)
 
     property bool alive: false
-    onShouldShowChanged: {
-        if (shouldShow) {
+    onEffectiveShowChanged: {
+        if (effectiveShow) {
             hideTimer.stop();
             alive = true;
         } else {
@@ -34,6 +39,7 @@ Item {
 
     Loader {
         active: root.alive && !!root.anchorItem
+        onActiveChanged: if (!active) root.contentHovered = false
         sourceComponent: PopupWindow {
             visible: true
             color: "transparent"
@@ -63,6 +69,11 @@ Item {
                     sourceComponent: root.contentComponent
                 }
 
+                HoverHandler {
+                    enabled: root.interactive
+                    onHoveredChanged: root.contentHovered = hovered
+                }
+
                 // Slide in from the right + fade. Behaviors only fire on changes AFTER
                 // construction, so kick the first change via Qt.callLater.
                 opacity: 0
@@ -75,13 +86,13 @@ Item {
                     NumberAnimation { duration: 165; easing.type: Easing.OutCubic }
                 }
                 function sync() {
-                    bg.opacity = root.shouldShow ? 1 : 0;
-                    bg.slideX = root.shouldShow ? 0 : 16;
+                    bg.opacity = root.effectiveShow ? 1 : 0;
+                    bg.slideX = root.effectiveShow ? 0 : 16;
                 }
                 Component.onCompleted: Qt.callLater(bg.sync)
                 Connections {
                     target: root
-                    function onShouldShowChanged() { bg.sync(); }
+                    function onEffectiveShowChanged() { bg.sync(); }
                 }
             }
         }
