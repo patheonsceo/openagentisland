@@ -695,9 +695,21 @@ light that is not red/amber/green is not a traffic light.
   glyphs, backdrop greying. Works.
 - **Zen: done via `userChrome.css`** (see 8.1). Coloured circles work. Hover
   glyphs do not — GTK apps get them, Zen does not.
+- **Cursor / VS Code: not possible.** `window.titleBarStyle: "native"` was tried
+  and is WRONG for this compositor — native hands decoration to the compositor,
+  and Hyprland draws no titlebars, so Chromium falls back to drawing its own
+  controls on the RIGHT, ignoring the GTK layout entirely. That is worse than the
+  default. The default custom title bar also draws its own controls on the right
+  and does not read `gtk-decoration-layout`. Either way GTK CSS never applies.
+  The only remaining route is injecting CSS into the workbench (the Custom CSS
+  extension, or patching `workbench.html`), which triggers a permanent "your
+  installation appears corrupt" banner and breaks on every update. Declined.
 - kitty, Warp, Discord: unchanged, as designed. They draw no titlebar (or their
   own), and covering them needs the `hyprbars` plugin, which was declined for the
   rebuild-on-every-Hyprland-update cost.
+
+Backups of every file touched outside this repo live in
+`~/.local/share/traffic-lights-backup/`.
 
 ### 8.1 Zen, via userChrome.css
 
