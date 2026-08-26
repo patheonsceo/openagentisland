@@ -74,8 +74,11 @@ Variants {
         // Layer props
         screen: modelData
         exclusionMode: ExclusionMode.Ignore
-        WlrLayershell.layer: (GlobalStates.screenLocked && !scaleAnim.running) ? WlrLayer.Overlay : WlrLayer.Bottom
-        // WlrLayershell.layer: WlrLayer.Bottom
+        // Background, not Bottom. The wallpaper is the bottom-most thing on the
+        // screen, and sharing Bottom with desktop widgets left the two ordered by
+        // surface creation order — which meant the wallpaper could be painted over
+        // the widgets that are supposed to sit on it, differently on each run.
+        WlrLayershell.layer: (GlobalStates.screenLocked && !scaleAnim.running) ? WlrLayer.Overlay : WlrLayer.Background
         WlrLayershell.namespace: "quickshell:background"
         anchors {
             top: true

@@ -13,10 +13,8 @@ import QtQuick.Layouts
  * corner radii — rendered entirely from Appearance tokens so it retints with
  * the wallpaper instead of pinning a palette.
  *
- * The frosted look is the compositor's, not ours: this card lives on a layer
- * surface that carries a Hyprland `blur` rule, and blur:xray is on, so what it
- * blurs is the wallpaper. Drawing the frost in QML would mean decoding the
- * wallpaper a second time.
+ * The frost is drawn in QML rather than by the compositor — see
+ * FrostedBackdrop for why that turned out to be necessary here.
  */
 Item {
     id: root
@@ -29,6 +27,10 @@ Item {
 
     // The host window raises keyboard focus only while we actually need typing.
     readonly property bool inputActive: addField.activeFocus || root.pickerTask !== null
+
+    // Needed to lay the frost's wallpaper copy out exactly as the real one.
+    property int screenWidth: 1920
+    property int screenHeight: 1080
 
     property var pickerTask: null
     property bool completedExpanded: false
@@ -45,19 +47,24 @@ Item {
     }
 
 
+    // Frosted glass, drawn in QML. See FrostedBackdrop for why not the compositor.
+    FrostedBackdrop {
+        anchors.fill: parent
+        radius: root.cardRadius
+        surfaceX: root.x
+        surfaceY: root.y
+        screenWidth: root.screenWidth
+        screenHeight: root.screenHeight
+        tintOpacity: root.config.tintOpacity
+        baseOpacity: root.config.baseOpacity
+        blurMax: root.config.blurRadius
+    }
+
     Rectangle {
         id: cardBackground
         anchors.fill: parent
         radius: root.cardRadius
-
-        // 10% primary over the compositor blur. Drafted at 5 / 10 / 62 percent
-        // against both a near-black and a blown-out region of the wallpaper;
-        // 5% could not hold text over the bright one.
-        color: Qt.rgba(
-            Appearance.colors.colPrimary.r,
-            Appearance.colors.colPrimary.g,
-            Appearance.colors.colPrimary.b,
-            root.config.tintOpacity)
+        color: "transparent"
         border.width: 1
         border.color: Appearance.colors.colLayer0Border
 
@@ -165,13 +172,13 @@ Item {
                     Layout.alignment: Qt.AlignHCenter
                     text: "task_alt"
                     iconSize: 32
-                    color: Appearance.m3colors.m3outline
+                    color: Appearance.colors.colSubtext
                 }
                 StyledText {
                     Layout.alignment: Qt.AlignHCenter
                     text: Translation.tr("Nothing left today")
                     font.pixelSize: Appearance.font.pixelSize.smaller
-                    color: Appearance.m3colors.m3outline
+                    color: Appearance.colors.colSubtext
                 }
             }
 
@@ -266,7 +273,7 @@ Item {
                         visible: addField.text.length === 0
                         text: Translation.tr("Add a task…")
                         font.pixelSize: Appearance.font.pixelSize.small
-                        color: Appearance.m3colors.m3outline
+                        color: Appearance.colors.colSubtext
                     }
                 }
             }

@@ -28,13 +28,6 @@ Scope {
     // either on all three would be three countdowns of the same session.
     readonly property string activeScreenName: Hyprland.focusedMonitor?.name ?? ""
 
-    // Blur is the compositor's job here too. blur:xray is on, so the take-over
-    // frosts the wallpaper rather than whatever window happened to be in front.
-    Component.onCompleted: Quickshell.execDetached(["bash", "-c",
-        `hyprctl --batch "keyword layerrule blur,quickshell:focusTimer; ` +
-        `keyword layerrule ignorealpha 0.05,quickshell:focusTimer; ` +
-        `keyword layerrule blur,quickshell:focusPill; ` +
-        `keyword layerrule ignorealpha 0.15,quickshell:focusPill"`])
 
     // ── Maximised ────────────────────────────────────────────────
     LazyLoader {
@@ -62,13 +55,14 @@ Scope {
             Rectangle {
                 id: scrim
                 anchors.fill: parent
-                // Dark enough that the wallpaper stops competing for attention.
-                // The compositor blur underneath does the rest.
+                // Opaque enough on its own — there is no compositor blur here to
+                // help, so the scrim has to do all the work of quieting whatever
+                // is behind it.
                 color: Qt.rgba(
                     Appearance.colors.colLayer0.r,
                     Appearance.colors.colLayer0.g,
                     Appearance.colors.colLayer0.b,
-                    0.88)
+                    0.93)
 
                 // Clicking the backdrop minimises rather than cancels — losing a
                 // running session to a stray click would be hostile.
@@ -199,11 +193,10 @@ Scope {
                 implicitWidth: pillRow.implicitWidth + 26
                 implicitHeight: 42
                 radius: Appearance.rounding.full
-                color: Qt.rgba(
-                    Appearance.colors.colPrimary.r,
-                    Appearance.colors.colPrimary.g,
-                    Appearance.colors.colPrimary.b,
-                    0.12)
+                // Opaque, not glass. The pill floats over whatever window you are
+                // working in, so a wallpaper-sampled frost would show the wrong
+                // thing entirely, and compositor blur is unavailable here.
+                color: Appearance.colors.colLayer0
                 border.width: 1
                 border.color: Appearance.colors.colLayer0Border
 

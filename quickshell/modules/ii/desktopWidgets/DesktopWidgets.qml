@@ -31,16 +31,6 @@ Scope {
 
     readonly property var todoConfig: Config.options.background.widgets.todo
 
-    // Applied at runtime rather than written into ~/.config/hypr, which this
-    // project is not allowed to touch. Harmless to re-apply on reload.
-    function applyLayerRules() {
-        Quickshell.execDetached(["bash", "-c",
-            `hyprctl --batch "keyword layerrule blur,quickshell:desktopWidgets; ` +
-            `keyword layerrule ignorealpha 0.15,quickshell:desktopWidgets"`]);
-    }
-
-    Component.onCompleted: root.applyLayerRules()
-
     Variants {
         model: Quickshell.screens
 
@@ -97,6 +87,8 @@ Scope {
 
             TodoCard {
                 id: todoCard
+                screenWidth: widgetWindow.width
+                screenHeight: widgetWindow.height
             }
         }
     }

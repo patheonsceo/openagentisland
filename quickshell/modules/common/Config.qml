@@ -222,7 +222,10 @@ Singleton {
                         // Card material. Drafted at 5% / 10% / 62% against a wallpaper with both
                         // near-black and blown-out regions; 10% was the only one legible in both.
                         property real tintOpacity: 0.10
-                        property int blurRadius: 40
+                        // Luminance floor under the blur, so the card stays readable
+                        // over bright patches of wallpaper.
+                        property real baseOpacity: 0.42
+                        property int blurRadius: 64
                         property bool showCompleted: true
                         property int maxVisibleTasks: 8
                         // Duration presets offered when starting a task, in minutes.
