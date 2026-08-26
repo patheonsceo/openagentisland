@@ -651,3 +651,52 @@ interval, so a real figure appears almost immediately.
 
 Verify readings against the system, not against the code: `/proc/stat` deltas said
 9.6% while the panel said 0%, which is what proved the panel wrong.
+
+---
+
+## 8. TRAFFIC LIGHTS (config only, outside this repo)
+
+No code in this repo. Everything lives in the user's config, so it is recorded
+here rather than committed. Backups of every file touched were taken first.
+
+Files changed:
+- `~/.config/gtk-3.0/settings.ini`, `~/.config/gtk-4.0/settings.ini` (created) —
+  `gtk-decoration-layout=close,minimize,maximize:`. The trailing colon is the
+  left/right split, so everything before it sits left and nothing sits right.
+- `gsettings org.gnome.desktop.wm.preferences button-layout` — set to match,
+  because apps that read gsettings ignore settings.ini.
+- `~/.config/kdeglobals` — `[org.kde.kdecoration2] ButtonsOnLeft=XIA`
+  (X close, I minimize, A maximize) for server-decorated Qt apps.
+- `~/.config/matugen/templates/gtk-{3,4}.0/gtk.css` — the traffic-light CSS.
+
+**The CSS must go in the Matugen TEMPLATE.** `~/.config/gtk-4.0/gtk.css` is
+generated output; anything written there survives only until the next wallpaper
+change. Verified by re-running matugen five times during development — the rules
+came through every time.
+
+Colours are hardcoded `#ff5f57 / #febc2e / #28c840` rather than themed: a traffic
+light that is not red/amber/green is not a traffic light.
+
+### Gotchas
+
+- **`all: unset` first.** libadwaita sizes and paints these buttons from several
+  rules at once. Setting `padding` and `min-*` alone left them as ovals AND let
+  its own background bleed through the amber one, which came out muddy olive.
+- **GTK CSS has no `max-height`,** and the button stretches to the headerbar's
+  height, so `min-height` cannot make a circle. Vertical `margin` is the only
+  lever — `margin: 11px 5px` lands a 13px circle on a standard libadwaita
+  headerbar. It is headerbar-height dependent, so it is a tuning value, not a law.
+- **Hovering one reveals all three glyphs** via `windowcontrols:hover > button
+  image`, which is the single most recognisable detail of the real thing.
+
+### Coverage, as actually observed
+
+- Nautilus / GTK4 / libadwaita: full traffic lights, correct colours, hover
+  glyphs, backdrop greying. Works.
+- **Zen: buttons moved left, but NOT restyled.** Firefox draws its own window
+  controls in its chrome, so GTK CSS never reaches them. Restyling those needs
+  `userChrome.css` in the Zen profile — a separate surface, deliberately not
+  done here.
+- kitty, Warp, Discord: unchanged, as designed. They draw no titlebar (or their
+  own), and covering them needs the `hyprbars` plugin, which was declined for the
+  rebuild-on-every-Hyprland-update cost.

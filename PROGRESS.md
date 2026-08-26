@@ -5,6 +5,24 @@ lives in `NOTES.md`.
 
 ---
 
+## 2026-08-26 (evening) — traffic lights
+
+Config only, nothing in this repo; see NOTES.md section 8. GTK + Qt button layout
+moved left, macOS traffic-light CSS added to the **Matugen templates** so a
+wallpaper change cannot wipe it (verified across five regenerations).
+
+- Works fully on GTK4/libadwaita (Nautilus): circles, correct colours, hover
+  reveals all three glyphs, backdrop greys them out.
+- **Zen moves its buttons left but keeps its own styling** — Firefox draws its own
+  window controls, so GTK CSS does not reach them. Would need userChrome.css.
+- kitty / Warp / Discord unchanged by design (no titlebar to decorate).
+
+Gotchas: `all: unset` is required or libadwaita leaves them oval and the amber one
+muddy; GTK CSS has no `max-height`, so vertical `margin` is the only way to get a
+circle out of a button that stretches to the headerbar height.
+
+---
+
 ## 2026-08-26 (evening) — menubar items made functional + Control Centre
 
 - Every menubar item now does something specific rather than all opening the same
