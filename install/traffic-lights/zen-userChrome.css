@@ -94,6 +94,12 @@
   justify-content: center !important;
   margin-block: 0 !important;
   padding-block: 0 !important;
+  /* Breathing room so the cluster reads as part of the window chrome rather
+   * than three dots glued to whatever sits next to them. macOS gives the
+   * lights real space on both sides; more on the trailing edge, because the
+   * next control is a different kind of thing. */
+  margin-inline: 14px 26px !important;
+  padding-inline: 0 !important;
 }
 .titlebar-buttonbox {
   align-items: center !important;
