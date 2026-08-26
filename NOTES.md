@@ -631,3 +631,23 @@ Gotchas:
   to the popup's own window, whose screen is a different object, and
   `Brightness.getMonitorForScreen` matches by identity — so it silently finds
   nothing. Pass the screen in from the panel that owns it.
+
+### 7.5 Why CPU read 0%
+
+Two causes stacked, both silent.
+
+`ResourceUsage` is a QML singleton, and QML singletons are **lazy** — nothing
+constructs one until something references it. `IslandRight` used to hold CPU
+rings, which kept it alive and polling from startup. Retiring the islands removed
+that reference, so the service now only wakes when something like Control Centre
+opens. (Part of the 25.9% -> 13.9% idle CPU win is exactly this: a poller that had
+been running forever stopped.)
+
+On top of that, a CPU figure is a **delta** — the first sample can only seed a
+baseline and must read 0%. Combined with lazy construction, that first 0% is
+precisely what a user sees the moment the panel opens. Fixed by scheduling the
+second sample 400ms after the first and only then settling to the configured
+interval, so a real figure appears almost immediately.
+
+Verify readings against the system, not against the code: `/proc/stat` deltas said
+9.6% while the panel said 0%, which is what proved the panel wrong.

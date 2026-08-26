@@ -21,6 +21,12 @@ Singleton {
     property real swapUsedPercentage: swapTotal > 0 ? (swapUsed / swapTotal) : 0
     property real cpuUsage: 0
     property var previousCpuStats
+    // A CPU figure is a DELTA, so the first sample can only seed the baseline and
+    // necessarily reads 0%. This singleton is lazily created — nothing references
+    // it until something like Control Centre opens — so that first 0% is exactly
+    // what a user sees on opening. Sample again quickly, then settle to the
+    // configured interval.
+    property bool sampledOnce: false
     // CPU package temperature in °C (0 = no sensor discovered yet / unsupported).
     // cpuTempPath is the sysfs file (millidegrees) found once by findTempProc below.
     property real cpuTemperature: 0
@@ -130,7 +136,10 @@ Singleton {
             }
 
             root.updateHistories()
-            interval = Config.options?.resources?.updateInterval ?? 3000
+            interval = root.sampledOnce
+                ? (Config.options?.resources?.updateInterval ?? 3000)
+                : 400;
+            root.sampledOnce = true;
         }
 	}
 
