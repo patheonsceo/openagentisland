@@ -5,6 +5,32 @@ lives in `NOTES.md`.
 
 ---
 
+## 2026-08-26 (evening) — menubar items made functional + Control Centre
+
+- Every menubar item now does something specific rather than all opening the same
+  sidebar. Volume: scroll to change, click to mute, right click for the mixer.
+  Wi-Fi / Bluetooth: click toggles the radio, right click opens settings. Clock:
+  click drops a calendar.
+- **Control Centre** (`modules/ii/menubar/ControlCentre.qml`): power-mode chips,
+  live CPU / memory / swap / GPU / battery, volume + brightness sliders, Wi-Fi and
+  Bluetooth tiles. GPU is reported as a *clock*, not load — Intel integrated
+  graphics expose no busy-percent, so calling it load would be a guess.
+- `ResourceUsage` gained Intel GPU clock (globs for the card dir; index varies).
+
+### Gotchas
+
+- **`FileView.reload()` is async** — `text()` on the next line returns the previous
+  contents or empty. CPU temp and GPU clock read as 0 until `blockLoading: true`.
+- **`Hyprland` requires `import Quickshell.Hyprland`** — without it the reference
+  fails as a runtime ReferenceError, which is why the menubar always showed
+  "Desktop" instead of the focused app's name.
+- **Do not derive a ShellScreen from `QsWindow` inside a popup** — it resolves to
+  the popup's window, and `Brightness.getMonitorForScreen` matches by identity.
+- Not a bug: the brightness slider reading near-zero was correct. The backlight
+  really was at 1/400.
+
+---
+
 ## 2026-08-26 (later) — macOS menubar + dock magnification, and idle CPU halved
 
 - **Menubar replaces IslandLeft/IslandRight** (`modules/ii/menubar/`). Full width,

@@ -10,8 +10,11 @@ import QtQuick
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Wayland
+import Quickshell.Hyprland
 import Quickshell.Wayland as QsWayland
 import Quickshell.Services.SystemTray
+import Quickshell.Services.UPower
+import Quickshell.Bluetooth
 
 /**
  * macOS-style menubar. Replaces IslandLeft and IslandRight.
@@ -70,6 +73,10 @@ Scope {
                     Region { item: rightCluster }
                 ]
             }
+
+            // Dropdown state. Only one of these is ever open at a time.
+            property bool calendarOpen: false
+            property bool controlCentreOpen: false
 
             readonly property bool focusedHere:
                 (Hyprland.focusedMonitor?.name ?? "") === (barWindow.screen.name ?? "")
@@ -166,23 +173,64 @@ Scope {
                     showSeparator: false
                 }
 
+                // Scroll to change volume, click to mute, right click for the mixer.
                 MenuItem {
                     symbol: Audio.sink?.audio?.muted ? "volume_off"
-                        : (Audio.sink?.audio?.volume ?? 0) > 0.5 ? "volume_up" : "volume_down"
-                    onTriggered: GlobalStates.sidebarRightOpen = !GlobalStates.sidebarRightOpen
+                        : (Audio.sink?.audio?.volume ?? 0) > 0.5 ? "volume_up"
+                        : (Audio.sink?.audio?.volume ?? 0) > 0 ? "volume_down" : "volume_mute"
+                    active: !(Audio.sink?.audio?.muted ?? false)
+                    scrollable: true
+                    onTriggered: if (Audio.sink?.audio) Audio.sink.audio.muted = !Audio.sink.audio.muted
+                    onSecondary: Quickshell.execDetached(["bash", "-c", Config.options.apps.volumeMixer])
+                    onScrolled: delta => {
+                        if (!Audio.sink?.audio) return;
+                        Audio.sink.audio.volume = Math.max(0, Math.min(1,
+                            Audio.sink.audio.volume + delta * 0.05));
+                    }
                 }
 
+                // Click toggles the adapter, right click opens the full settings.
                 MenuItem {
-                    visible: BluetoothStatus.available && BluetoothStatus.enabled
-                    symbol: BluetoothStatus.connected ? "bluetooth_connected" : "bluetooth"
-                    onTriggered: GlobalStates.sidebarRightOpen = !GlobalStates.sidebarRightOpen
+                    visible: BluetoothStatus.available
+                    symbol: BluetoothStatus.connected ? "bluetooth_connected"
+                        : BluetoothStatus.enabled ? "bluetooth" : "bluetooth_disabled"
+                    active: BluetoothStatus.enabled
+                    onTriggered: {
+                        if (Bluetooth.defaultAdapter)
+                            Bluetooth.defaultAdapter.enabled = !Bluetooth.defaultAdapter.enabled;
+                    }
+                    onSecondary: Quickshell.execDetached(["bash", "-c", Config.options.apps.bluetooth])
                 }
 
+                // Click toggles wifi, right click opens network settings.
                 MenuItem {
                     symbol: Network.ethernet ? "lan"
                         : !Network.wifiEnabled ? "wifi_off"
-                        : Network.wifi ? "wifi" : "wifi_off"
-                    onTriggered: GlobalStates.sidebarRightOpen = !GlobalStates.sidebarRightOpen
+                        : Network.wifi ? "wifi" : "wifi_find"
+                    active: Network.ethernet || Network.wifiEnabled
+                    onTriggered: Network.toggleWifi()
+                    onSecondary: Quickshell.execDetached(["bash", "-c", Config.options.apps.network])
+                }
+
+                // Control Centre — the sliders/toggles panel, like macOS.
+                MenuItem {
+                    id: ccItem
+                    symbol: "tune"
+                    active: barWindow.controlCentreOpen
+                    onTriggered: {
+                        barWindow.controlCentreOpen = !barWindow.controlCentreOpen;
+                        barWindow.calendarOpen = false;
+                    }
+                    onSecondary: Quickshell.execDetached(["bash", "-c", Config.options.apps.taskManager])
+
+                    IslandPopup {
+                        anchorItem: ccItem
+                        shouldShow: barWindow.controlCentreOpen
+                        interactive: true
+                        contentComponent: Component {
+                            ControlCentre { targetScreen: barWindow.screen }
+                        }
+                    }
                 }
 
                 // Percentage then glyph, the way macOS orders it.
@@ -208,17 +256,44 @@ Scope {
                         : Appearance.colors.colOnLayer0
                 }
 
+                // Click drops a real calendar, not another sidebar toggle.
                 StyledText {
+                    id: clockText
                     Layout.alignment: Qt.AlignVCenter
                     text: `${DateTime.collapsedCalendarFormat}  ${DateTime.time}`
                     font.pixelSize: Appearance.font.pixelSize.smaller
-                    color: Appearance.colors.colOnLayer0
+                    color: clockArea.containsMouse
+                        ? Appearance.colors.colPrimary
+                        : Appearance.colors.colOnLayer0
+
+                    Behavior on color {
+                        animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(this)
+                    }
 
                     MouseArea {
+                        id: clockArea
                         anchors.fill: parent
-                        anchors.margins: -5
+                        anchors.margins: -6
+                        hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
-                        onClicked: GlobalStates.sidebarRightOpen = !GlobalStates.sidebarRightOpen
+                        acceptedButtons: Qt.LeftButton | Qt.RightButton
+                        onClicked: mouse => {
+                            if (mouse.button === Qt.RightButton)
+                                GlobalStates.sidebarRightOpen = !GlobalStates.sidebarRightOpen;
+                            else {
+                                barWindow.calendarOpen = !barWindow.calendarOpen;
+                                barWindow.controlCentreOpen = false;
+                            }
+                        }
+                    }
+
+                    IslandPopup {
+                        anchorItem: clockText
+                        shouldShow: barWindow.calendarOpen
+                        interactive: true
+                        contentComponent: Component {
+                            CalendarView {}
+                        }
                     }
                 }
             }
@@ -227,15 +302,24 @@ Scope {
 
     // Monochrome glyph, no pill behind it. The whole point of the menubar is
     // that nothing has a container.
+    //
+    // Every item does something specific rather than all opening the same
+    // sidebar: left click is the primary action, right click opens the full
+    // application for it, and scrolling adjusts where adjusting makes sense.
     component MenuItem: MaterialSymbol {
         id: menuItem
         required property string symbol
+        property bool active: true          // false = "off", dimmed
+        property bool scrollable: false
         signal triggered()
+        signal secondary()
+        signal scrolled(int delta)          // +1 up, -1 down
 
         Layout.alignment: Qt.AlignVCenter
         text: menuItem.symbol
         iconSize: 17
         fill: 1
+        opacity: menuItem.active ? 1 : 0.45
         color: itemArea.containsMouse
             ? Appearance.colors.colPrimary
             : Appearance.colors.colOnLayer0
@@ -243,14 +327,25 @@ Scope {
         Behavior on color {
             animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(this)
         }
+        Behavior on opacity {
+            animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+        }
 
         MouseArea {
             id: itemArea
             anchors.fill: parent
-            anchors.margins: -5
+            anchors.margins: -6
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
-            onClicked: menuItem.triggered()
+            acceptedButtons: Qt.LeftButton | Qt.RightButton
+            onClicked: mouse => {
+                if (mouse.button === Qt.RightButton) menuItem.secondary();
+                else menuItem.triggered();
+            }
+            onWheel: wheel => {
+                if (!menuItem.scrollable) return;
+                menuItem.scrolled(wheel.angleDelta.y > 0 ? 1 : -1);
+            }
         }
     }
 }

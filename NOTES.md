@@ -600,3 +600,34 @@ latter tries to parse arguments as Lua. Use `hyprctl eval` with the `hl` API:
 `hl.layer_rule({ match = { namespace = "..." }, blur = true })`,
 `hl.dsp.cursor.move({x=..., y=...})`. Anything in this repo shelling out to
 `hyprctl keyword` (e.g. GameMode.qml) is silently a no-op here.
+
+### 7.4 Menubar items do real work; Control Centre
+
+Every menubar item has a distinct action instead of all opening the same
+sidebar: left click is the primary action, right click opens the full
+application for it, scroll adjusts where that makes sense.
+
+- volume: scroll changes it, click mutes, right click opens the mixer
+- wifi / bluetooth: click toggles the radio, right click opens its settings
+- clock: click drops a calendar
+- Control Centre (`ControlCentre.qml`): power-mode chips, live CPU / memory /
+  swap / GPU / battery, volume and brightness sliders, Wi-Fi and Bluetooth tiles
+
+GPU is labelled **GPU clock**, not load. Intel integrated graphics expose
+`gt_act_freq_mhz` and no busy-percent at all, so anything called "GPU load" here
+would be a guess dressed as a measurement. `ResourceUsage` discovers the card
+directory once by globbing — the index varies (card1 here, card0 elsewhere).
+
+Gotchas:
+- **`FileView.reload()` is asynchronous.** Calling `text()` on the next line
+  returns the *previous* contents, or empty on the first tick. That is why CPU
+  temperature and GPU clock read as zero. `blockLoading: true` makes the
+  /proc and sysfs reads synchronous, which is what this polling loop wants.
+- **`Hyprland` needs `import Quickshell.Hyprland`.** Without it the reference
+  fails silently at runtime as a ReferenceError in the log, and every binding
+  that depended on it fell back — which is why the menubar always said "Desktop"
+  instead of the focused app.
+- **Do not derive a `ShellScreen` from `QsWindow` inside a popup.** It resolves
+  to the popup's own window, whose screen is a different object, and
+  `Brightness.getMonitorForScreen` matches by identity — so it silently finds
+  nothing. Pass the screen in from the panel that owns it.

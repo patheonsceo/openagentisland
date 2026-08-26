@@ -26,6 +26,16 @@ Singleton {
     property real cpuTemperature: 0
     property string cpuTempPath: ""
 
+    // Intel integrated graphics expose no busy-percent and no hwmon temperature,
+    // only clocks. Clock as a share of max is a rough load proxy, so it is
+    // labelled as a clock rather than as utilisation.
+    property real gpuFreq: 0
+    property real gpuMaxFreq: 0
+    readonly property real gpuLoad: root.gpuMaxFreq > 0
+        ? Math.min(1, root.gpuFreq / root.gpuMaxFreq) : 0
+    property string gpuFreqPath: ""
+    property string gpuMaxFreqPath: ""
+
     property string maxAvailableMemoryString: kbToGbString(ResourceUsage.memoryTotal)
     property string maxAvailableSwapString: kbToGbString(ResourceUsage.swapTotal)
     property string maxAvailableCpuString: "--"
@@ -112,14 +122,51 @@ Singleton {
                 if (milli > 0) cpuTemperature = milli / 1000
             }
 
+            // GPU clock (see gpuLoad above for why this is a clock, not a load).
+            if (root.gpuFreqPath.length > 0) {
+                fileGpuFreq.reload();
+                const mhz = Number(fileGpuFreq.text());
+                if (mhz > 0) root.gpuFreq = mhz;
+            }
+
             root.updateHistories()
             interval = Config.options?.resources?.updateInterval ?? 3000
         }
 	}
 
-	FileView { id: fileMeminfo; path: "/proc/meminfo" }
-    FileView { id: fileStat; path: "/proc/stat" }
-    FileView { id: fileTemp; path: root.cpuTempPath }
+	FileView { id: fileMeminfo; path: "/proc/meminfo"; blockLoading: true }
+    FileView { id: fileStat; path: "/proc/stat"; blockLoading: true }
+    FileView { id: fileTemp; path: root.cpuTempPath; blockLoading: true }
+    FileView { id: fileGpuFreq; path: root.gpuFreqPath; blockLoading: true }
+
+    // Discover the GPU clock files ONCE. card index varies (card0 on some
+    // machines, card1 here), so glob rather than hardcode.
+    Process {
+        id: findGpuProc
+        running: true
+        command: ["bash", "-c",
+            "for d in /sys/class/drm/card*/; do " +
+            "if [ -r \"$d/gt_act_freq_mhz\" ]; then echo \"$d\"; break; fi; done"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const dir = this.text.trim();
+                if (dir.length === 0) return;
+                root.gpuFreqPath = `${dir}gt_act_freq_mhz`;
+                root.gpuMaxFreqPath = `${dir}gt_max_freq_mhz`;
+                readGpuMaxProc.running = true;
+            }
+        }
+    }
+    Process {
+        id: readGpuMaxProc
+        command: ["cat", root.gpuMaxFreqPath]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const mhz = Number(this.text.trim());
+                if (mhz > 0) root.gpuMaxFreq = mhz;
+            }
+        }
+    }
 
     // Discover the best CPU-temperature sysfs file ONCE at startup, then read it
     // cheaply via fileTemp each tick (no per-tick process spawn). Prefers the CPU
