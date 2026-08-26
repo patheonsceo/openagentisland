@@ -693,10 +693,44 @@ light that is not red/amber/green is not a traffic light.
 
 - Nautilus / GTK4 / libadwaita: full traffic lights, correct colours, hover
   glyphs, backdrop greying. Works.
-- **Zen: buttons moved left, but NOT restyled.** Firefox draws its own window
-  controls in its chrome, so GTK CSS never reaches them. Restyling those needs
-  `userChrome.css` in the Zen profile — a separate surface, deliberately not
-  done here.
+- **Zen: done via `userChrome.css`** (see 8.1). Coloured circles work. Hover
+  glyphs do not — GTK apps get them, Zen does not.
 - kitty, Warp, Discord: unchanged, as designed. They draw no titlebar (or their
   own), and covering them needs the `hyprbars` plugin, which was declined for the
   rebuild-on-every-Hyprland-update cost.
+
+### 8.1 Zen, via userChrome.css
+
+GTK CSS cannot reach Firefox-family window controls: they are drawn inside the
+browser's own chrome. Zen needs its own stylesheet.
+
+Profile is `~/.config/zen/ivq0hep3.Default (release)/` — note **`~/.config/zen`,
+not `~/.zen`**, which is where the first search looked and found nothing. The
+live profile is the one holding `.parentlock`.
+
+- `chrome/userChrome.css` — the traffic lights (new file; the existing
+  `zen-themes.css` was left alone).
+- `user.js` — `toolkit.legacyUserProfileCustomizations.stylesheets = true`,
+  appended to the existing VA-API tuning rather than replacing it. Using
+  `user.js` rather than `prefs.js` means it is reapplied at every startup.
+
+Both are read **only at startup**, so Zen must be restarted to pick up changes.
+
+Three things had to be right, and each failed silently on its own:
+
+1. **Classes, not ids.** Modern Firefox moved these from `id="titlebar-close"` to
+   `class="titlebar-button titlebar-close"`. The id selectors matched nothing —
+   the buttons took the shape rules and stayed grey, which looked like a colour
+   problem but was a selector problem.
+2. **Specificity, not just `!important`.** Zen's own chrome sets these
+   backgrounds `!important` too, and an `!important` tie is broken by
+   specificity. The rules are deliberately over-qualified
+   (`:root .titlebar-buttonbox-container .titlebar-buttonbox ...`) to outweigh it.
+3. **`background` shorthand, not `background-color`** — a later shorthand in
+   Zen's sheet would otherwise wipe a bare `background-color`.
+
+**Known limitation: no hover glyphs in Zen.** Firefox paints them as
+`background-image: -moz-symbolic-icon(...)` on the icon child, and neither
+opacity nor explicit `background-size` brought them back. Verified with the
+cursor genuinely on the button (its "Minimize" tooltip fired). GTK apps do get
+hover glyphs; Zen gets colour only.
