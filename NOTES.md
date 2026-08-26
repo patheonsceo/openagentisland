@@ -531,3 +531,72 @@ than cancels — losing a running session to a stray click would be hostile.
 - **Capture the nested session natively** with `WAYLAND_DISPLAY=wayland-2 grim`.
   Screenshotting the nested window's rectangle on the host catches host overlays
   sitting on top of it.
+
+---
+
+## 7. MENUBAR + DOCK MAGNIFICATION (as-built)
+
+### 7.1 Menubar replaces IslandLeft / IslandRight
+
+`modules/ii/menubar/Menubar.qml`. Full width, no island, no outline. The only
+thing between the text and the wallpaper is a scrim — opaque at the very top,
+gone by 46px — so text always has ground under it but there is never an edge.
+Drafted against three treatments over the worst part of the wallpaper: a bare
+text-shadow could not hold the right-hand cluster over the sun shaft, and a glass
+strip reintroduced exactly the bottom edge the design was meant to remove.
+
+Left is logo + focused app name + workspaces, deliberately NOT File/Edit/View.
+macOS can draw those because every app publishes its menu to the system; on
+Wayland nothing covers Electron, so Zen, Cursor, Warp and Discord — most of what
+runs here — would leave it empty.
+
+The notch keeps its own surface and is untouched. `islandReserve` (inside
+IslandNotch) still reserves the top strip, so the menubar claims no exclusive
+zone of its own — claiming it twice would push every window down twice.
+
+**This halved idle CPU.** 25.9% -> 13.9%, busy render threads 4 -> 1, main thread
+9.8% -> 5.9%. IslandLeft and IslandRight together were ~11% of a core at rest,
+with nothing changing on screen. Retiring them did what a day of config-flag
+bisecting could not.
+
+### 7.2 Dock, rebuilt from scratch
+
+`modules/ii/macDock/MacDock.qml`. The first attempt patched magnification into
+the existing dock and worked, but the old dock's shape (pin button, hover-to-
+reveal, window previews) is not the shape of a macOS dock, so it was rebuilt.
+The original is still there, gated behind `dock.macStyleDock`.
+
+42px icons on the bottom baseline, `transformOrigin: Item.Bottom` so they rise
+out of the container rather than swelling from their centres. 4px running dot
+below each running app, hairline separator before the trailing group, name label
+above on hover. Reserves its own strip via `exclusiveZone` (container height plus
+its gap) so maximised windows rest above it — deliberately NOT including the
+magnification headroom, so growing icons rise into free space instead of pushing
+every window down.
+
+Magnification is a raised cosine — 1 under the cursor, 0 at the edge of the
+falloff, flat tangent at both ends. A squared cosine peaks too sharply and reads
+as a snap. Peak 1.28 / spread 2.9, tuned live against the draft.
+
+**Item width is fixed; only `scale` changes.** Growing width as well made
+neighbours slide apart like the real dock, but it fed the result back into its
+own input — widths move centres, centres decide widths. The easing Behaviour did
+not damp that oscillation, it only gave it a nicer curve, and it read as visible
+jitter. Scale alone is stable and at this peak the icons stay clear anyway.
+
+Two more things that bit:
+- The window **clips its own contents**. Anything not budgeted into
+  `implicitHeight` is cut off, which is what cropped the name label until the
+  height accounted for label + magnification headroom.
+- A full-width 1px "inset highlight" across the top of the container reads as a
+  stray line where it crosses inside the rounded corners. Removed.
+
+### 7.3 hyprctl on a Lua-configured Hyprland
+
+Worth writing down because it cost real time twice. This machine configures
+Hyprland with the Lua parser, where `hyprctl keyword` and `hyprctl dispatch` do
+not work — the former answers "keyword can't work with non-legacy parsers", the
+latter tries to parse arguments as Lua. Use `hyprctl eval` with the `hl` API:
+`hl.layer_rule({ match = { namespace = "..." }, blur = true })`,
+`hl.dsp.cursor.move({x=..., y=...})`. Anything in this repo shelling out to
+`hyprctl keyword` (e.g. GameMode.qml) is silently a no-op here.

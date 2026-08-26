@@ -355,6 +355,23 @@ Singleton {
                 property list<string> pinnedApps: [ // IDs of pinned entries
                     "org.kde.dolphin", "kitty",]
                 property list<string> ignoredAppRegexes: []
+                // macOS-style hover magnification. peak is the scale directly under
+                // the cursor; spread is the falloff radius in icon widths. A higher
+                // spread means more icons each moving a little rather than one icon
+                // moving a lot, which is most of what reads as "smooth".
+                // Use the from-scratch macOS dock instead of the original one.
+                property bool macStyleDock: true
+                // Reserve a strip at the bottom so maximised windows rest above the
+                // dock rather than sliding beneath it.
+                property bool reserveSpace: true
+                property JsonObject macStyle: JsonObject {
+                    property real iconSize: 42
+                }
+                property JsonObject magnification: JsonObject {
+                    property bool enable: true
+                    property real peak: 1.28
+                    property real spread: 2.9
+                }
             }
 
             property JsonObject island: JsonObject {

@@ -10,7 +10,9 @@ import qs.modules.ii.desktopWidgets
 import qs.modules.ii.dock
 import qs.modules.ii.focusTimer
 import qs.modules.ii.lock
+import qs.modules.ii.macDock
 import qs.modules.ii.mediaControls
+import qs.modules.ii.menubar
 import qs.modules.ii.notificationPopup
 import qs.modules.ii.onScreenDisplay
 import qs.modules.ii.onScreenKeyboard
@@ -29,13 +31,16 @@ import qs.modules.ii.wallpaperSelector
 Scope {
     // OpenAgentIsland: full-width Bar disabled in favor of three floating islands.
     // PanelLoader { extraCondition: !Config.options.bar.vertical; component: Bar {} }
-    PanelLoader { component: IslandLeft {} }
+    // Replaced by the macOS-style Menubar (notch keeps its own surface).
+    // PanelLoader { component: IslandLeft {} }
     PanelLoader { component: IslandNotch {} }
-    PanelLoader { component: IslandRight {} }
+    // PanelLoader { component: IslandRight {} }
+    PanelLoader { component: Menubar {} }
     PanelLoader { component: Background {} }
     PanelLoader { component: Cheatsheet {} }
     PanelLoader { extraCondition: Config.options.background.widgets.todo.enable; component: DesktopWidgets {} }
-    PanelLoader { extraCondition: Config.options.dock.enable; component: Dock {} }
+    PanelLoader { extraCondition: Config.options.dock.enable && !Config.options.dock.macStyleDock; component: Dock {} }
+    PanelLoader { extraCondition: Config.options.dock.enable && Config.options.dock.macStyleDock; component: MacDock {} }
     PanelLoader { component: FocusOverlay {} }
     PanelLoader { component: Lock {} }
     PanelLoader { component: MediaControls {} }

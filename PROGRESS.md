@@ -5,6 +5,53 @@ lives in `NOTES.md`.
 
 ---
 
+## 2026-08-26 (later) — macOS menubar + dock magnification, and idle CPU halved
+
+- **Menubar replaces IslandLeft/IslandRight** (`modules/ii/menubar/`). Full width,
+  scrim gradient, no outline, no island. Left: logo + focused app name +
+  workspaces. Right: tray, volume, bluetooth, wifi, battery %, clock — monochrome
+  glyphs, no pills. Notch untouched; `islandReserve` still carries the exclusive
+  zone so the menubar claims none.
+- **Dock rebuilt from scratch** (`modules/ii/macDock/`). 42px icons on the bottom
+  baseline rising out of the container, magnification at peak 1.28 / spread 2.9
+  with a raised-cosine falloff, running dot below each running app, hairline
+  separator, name label on hover. Reserves its own strip via `exclusiveZone` so
+  maximised windows rest above it. The old dock is still present, gated behind
+  `dock.macStyleDock`.
+  - *Jitter:* growing item width as well as scale fed the result back into its own
+    input (widths move centres, centres decide widths). The easing Behaviour only
+    made the oscillation prettier. Width is now fixed; scale alone is stable.
+  - *Cropped tooltip:* the window clips its contents, so the label has to be
+    budgeted into `implicitHeight` along with the magnification headroom.
+  - *Stray line:* a full-width 1px top "highlight" crosses inside the rounded
+    corners and reads as a bug. Removed.
+- **Idle CPU halved: 25.9% -> 13.9%.** Busy render threads 4 -> 1, main thread
+  9.8% -> 5.9%, surfaces 17 -> 15. IslandLeft + IslandRight were ~11% of a core at
+  rest while nothing on screen changed. This was the CPU bug — the earlier
+  config-flag bisect (cava, floatStyleShadow, extraBackgroundTint) found nothing
+  because none of them were it.
+
+### Gotchas
+
+- **`hyprctl keyword` and `hyprctl dispatch` do not work here.** Hyprland is
+  configured through the Lua parser. Use `hyprctl eval` + the `hl` API. Any code
+  shelling out to `hyprctl keyword` (GameMode.qml) is silently a no-op.
+- **Do not bisect by editing and reloading on a short timer.** Reloading every 7s
+  never lets the shell settle and reports garbage (99% CPU). Full restart, ~20s
+  settle, then measure.
+- Dock pointer position cannot come from a `HoverHandler` on the row — delegate
+  MouseAreas swallow hover first.
+
+### Next
+
+- Traffic lights: toolkit settings only. GTK CSS must go in
+  `~/.config/matugen/templates/gtk-4.0/gtk.css`, not the generated `gtk.css`.
+- Remaining ~14% idle CPU is unexplained; the notch is ~8% of it with zero visual
+  change. Needs the QML profiler, not more guessing.
+- RSS still ~710MB (was 375MB this morning) and survives restarts. Unexplained.
+
+---
+
 ## 2026-08-26 — Desktop todo widget + per-task focus timer
 
 First piece of the macOS conversion. Designed visually and approved before any
