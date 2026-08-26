@@ -741,6 +741,12 @@ Three things had to be right, and each failed silently on its own:
 3. **`background` shorthand, not `background-color`** — a later shorthand in
    Zen's sheet would otherwise wipe a bare `background-color`.
 
+**Alignment:** pinning `height`/`max-height` on the buttons removes their
+natural vertical centring — they ride high and spill past the window's rounded
+top-left corner. `.titlebar-buttonbox-container` and `.titlebar-buttonbox` need
+explicit `align-self`/`align-items: center`. Do NOT correct this with a top
+margin; it breaks the moment the toolbar height changes.
+
 **Known limitation: no hover glyphs in Zen.** Firefox paints them as
 `background-image: -moz-symbolic-icon(...)` on the icon child, and neither
 opacity nor explicit `background-size` brought them back. Verified with the

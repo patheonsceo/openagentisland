@@ -1,0 +1,31 @@
+/* ── macOS traffic lights (GTK3 selectors) ─────────────────────────────
+ * Same intent as the GTK4 template; GTK3 styles the buttons as
+ * .titlebutton rather than through a windowcontrols container.
+ */
+headerbar button.titlebutton,
+.titlebar button.titlebutton {
+  min-width: 13px;
+  min-height: 13px;
+  padding: 0;
+  /* Vertical margin is the only lever — the button stretches to the headerbar
+   * height and GTK CSS has no max-height, so without this they are ovals. */
+  margin: 11px 5px;
+  border: none;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.16);
+  transition: background-color 150ms ease;
+}
+headerbar button.titlebutton.close,    .titlebar button.titlebutton.close    { background-color: #ff5f57; }
+headerbar button.titlebutton.minimize, .titlebar button.titlebutton.minimize { background-color: #febc2e; }
+headerbar button.titlebutton.maximize, .titlebar button.titlebutton.maximize { background-color: #28c840; }
+
+headerbar button.titlebutton image, .titlebar button.titlebutton image {
+  opacity: 0;
+  color: rgba(0, 0, 0, 0.62);
+}
+headerbar:hover button.titlebutton image { opacity: 1; }
+
+headerbar:backdrop button.titlebutton, .titlebar:backdrop button.titlebutton {
+  background-color: alpha(currentColor, 0.22);
+  box-shadow: none;
+}

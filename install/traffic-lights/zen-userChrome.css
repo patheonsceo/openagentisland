@@ -1,0 +1,102 @@
+/* macOS traffic lights for Zen.
+ *
+ * GTK CSS cannot reach these. Firefox-family browsers draw their own window
+ * controls inside their chrome, so the GTK theme moves them to the left but
+ * never restyles them — hence this file.
+ *
+ * Requires toolkit.legacyUserProfileCustomizations.stylesheets = true, set in
+ * user.js alongside this. Everything needs !important: Firefox's own chrome
+ * rules are more specific than anything author CSS can express here.
+ */
+
+.titlebar-button {
+  appearance: none !important;
+  width: 13px !important;
+  height: 13px !important;
+  min-width: 13px !important;
+  min-height: 13px !important;
+  max-width: 13px !important;
+  max-height: 13px !important;
+  padding: 0 !important;
+  margin: 0 4px !important;
+  border: none !important;
+  border-radius: 50% !important;
+  background-image: none !important;
+  box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.18) !important;
+  transition: background-color 150ms ease !important;
+}
+
+/* Zen's own chrome sets these backgrounds with !important too, and an
+ * !important tie is broken by SPECIFICITY — so these selectors are deliberately
+ * over-qualified to outweigh it, and set the `background` shorthand rather than
+ * background-color alone (a later `background:` shorthand would otherwise wipe
+ * a bare background-color).
+ *
+ * Both class and position are covered. Modern Firefox moved these from
+ * id="titlebar-close" to class="titlebar-button titlebar-close"; nth-child is
+ * the belt-and-braces fallback, and with the layout set to
+ * close,minimize,maximize the DOM order is close, min, max.
+ */
+:root .titlebar-buttonbox-container .titlebar-buttonbox .titlebar-button.titlebar-close,
+:root .titlebar-buttonbox-container .titlebar-buttonbox .titlebar-button:nth-child(1) {
+  background: #ff5f57 !important;
+}
+:root .titlebar-buttonbox-container .titlebar-buttonbox .titlebar-button.titlebar-min,
+:root .titlebar-buttonbox-container .titlebar-buttonbox .titlebar-button:nth-child(2) {
+  background: #febc2e !important;
+}
+:root .titlebar-buttonbox-container .titlebar-buttonbox .titlebar-button.titlebar-max,
+:root .titlebar-buttonbox-container .titlebar-buttonbox .titlebar-button.titlebar-restore,
+:root .titlebar-buttonbox-container .titlebar-buttonbox .titlebar-button:nth-child(3) {
+  background: #28c840 !important;
+}
+
+/* Glyphs hidden until hover, and hovering ANY reveals ALL three.
+ *
+ * Firefox draws these as `background-image: -moz-symbolic-icon(...)` on the
+ * icon child, so shrinking that child without also setting `background-size`
+ * leaves the glyph with nowhere to paint and nothing appears. */
+.titlebar-button > .toolbarbutton-icon {
+  opacity: 0 !important;
+  width: 13px !important;
+  height: 13px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  background-size: 9px 9px !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+  -moz-context-properties: fill !important;
+  fill: rgba(0, 0, 0, 0.7) !important;
+  transition: opacity 100ms ease !important;
+}
+.titlebar-buttonbox:hover .titlebar-button > .toolbarbutton-icon,
+.titlebar-buttonbox-container:hover .titlebar-button > .toolbarbutton-icon {
+  opacity: 1 !important;
+}
+
+/* An unfocused window greys all three out, like the real thing. */
+:root:not([active]) .titlebar-button {
+  background-color: rgba(255, 255, 255, 0.22) !important;
+  box-shadow: none !important;
+}
+:root:not([active]) .titlebar-button > .toolbarbutton-icon { opacity: 0 !important; }
+
+/* ── Alignment ─────────────────────────────────────────────────────────
+ * Pinning height/max-height on the buttons removes their natural vertical
+ * centring, so they rode ~20px high and spilled past the window's rounded
+ * top-left corner. Centre the container and its box explicitly rather than
+ * nudging with a magic top margin, which would break the moment the toolbar
+ * height changes.
+ */
+.titlebar-buttonbox-container {
+  align-self: center !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin-block: 0 !important;
+  padding-block: 0 !important;
+}
+.titlebar-buttonbox {
+  align-items: center !important;
+  justify-content: center !important;
+  height: 100% !important;
+}
