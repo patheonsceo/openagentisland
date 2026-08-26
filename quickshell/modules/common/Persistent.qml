@@ -157,6 +157,19 @@ Singleton {
                     property int start: 0
                     property list<var> laps: []
                 }
+                // Task focus countdown. Wall-clock based like pomodoro above, so it stays
+                // correct across suspend and shell reloads rather than counting ticks.
+                property JsonObject focus: JsonObject {
+                    property string taskId: ""
+                    property string taskContent: ""
+                    property bool running: false
+                    property bool minimized: false
+                    property int duration: 0     // seconds the session was started with
+                    property int start: 0        // unix seconds; shifted on resume to absorb pauses
+                    property int pausedLeft: 0   // seconds remaining when paused
+                    property real pillX: 60      // minimized pill position, remembered between sessions
+                    property real pillY: 60
+                }
             }
         }
     }

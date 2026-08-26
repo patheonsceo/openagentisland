@@ -5,6 +5,54 @@ lives in `NOTES.md`.
 
 ---
 
+## 2026-08-26 — Desktop todo widget + per-task focus timer
+
+First piece of the macOS conversion. Designed visually and approved before any
+code was written; see NOTES.md §6 for architecture and gotchas.
+
+- **Desktop todo card** on its own `WlrLayer.Bottom` surface
+  (`modules/ii/desktopWidgets/`). macOS Reminders anatomy — count-led header,
+  accent list name, hairline rule, hollow circle checkboxes, 40px rows, hover-only
+  start button — painted entirely from `Appearance` tokens, so it retints with the
+  wallpaper. Material is 10% `colPrimary` over **compositor** blur, not a Qt
+  effect. Drags from the header, position persists to
+  `background.widgets.todo`. Input masked to the card so the desktop stays
+  clickable. Shows on one monitor (`screenName`, empty = first screen).
+- **Per-task focus timer** (`services/FocusTimer.qml`,
+  `modules/ii/focusTimer/`). Start a task, pick a duration (presets + a -/+
+  stepper, pre-armed with whatever that task was last run with), then a fullscreen
+  take-over on the overlay layer with progress ring, or a draggable pill. Wall-clock
+  based, so it survives suspend and shell reloads. Notifies and plays a sound at
+  zero, logs the session onto the task, and the running task shows a live countdown
+  inline in the card.
+- **`Todo.qml` schema extended** with `id`, `createdAt`, `doneAt`, `lastDuration`
+  and `sessions`, migrated on read so existing `todo.json` files keep working.
+  Added `watchChanges` — with the sidebar and the desktop card both showing one
+  list, they were drifting apart until the next reload.
+- Verified in the nested session: rows, ellipsis, estimate badges, collapsible
+  Completed, countdown, ring, pill, and blur (confirmed on the pill over wallpaper).
+
+### Next
+
+- Menubar + dock (flatten the three islands). Drafts approved: scrim gradient,
+  no outline, logo + app name + workspaces on the left; dock magnification
+  1.28x peak / 2.9 icon-width spread, raised-cosine falloff.
+- Traffic lights via toolkit settings only. **GTK CSS must go in
+  `~/.config/matugen/templates/gtk-4.0/gtk.css`** — the `gtk.css` in
+  `~/.config/gtk-4.0/` is generated output and gets overwritten on retheme.
+
+### Open
+
+- **`qs` idles at ~24-30% CPU and RSS grew 375MB -> 609MB across this session's
+  hot reloads.** The reload growth is Quickshell accumulating across ~15 reloads
+  and clears on restart. The idle CPU does not: it is not the islands (flattening
+  only takes 17 layer surfaces to 10). Untested suspects: `cava` running
+  continuously for the notch visualiser, `bar.floatStyleShadow` re-rasterising a
+  Qt drop shadow per frame, `appearance.extraBackgroundTint`. Bisect by toggling
+  each and re-measuring.
+
+---
+
 ## 2026-07-13 — Notch on laptop screen only (config-driven) + perf tuning
 
 Investigating "YouTube lags on CachyOS": hardware video decode in Zen verified

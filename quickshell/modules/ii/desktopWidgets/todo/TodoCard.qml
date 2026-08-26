@@ -1,0 +1,304 @@
+import qs.modules.common
+import qs.modules.common.widgets
+import qs.modules.common.functions
+import qs.services
+import QtQuick
+import QtQuick.Layouts
+
+/**
+ * The desktop todo widget.
+ *
+ * macOS Reminders anatomy — count-led header, accent list name, hairline rule,
+ * hollow circle checkboxes, 40px row rhythm, 16px content margin, concentric
+ * corner radii — rendered entirely from Appearance tokens so it retints with
+ * the wallpaper instead of pinning a palette.
+ *
+ * The frosted look is the compositor's, not ours: this card lives on a layer
+ * surface that carries a Hyprland `blur` rule, and blur:xray is on, so what it
+ * blurs is the wallpaper. Drawing the frost in QML would mean decoding the
+ * wallpaper a second time.
+ */
+Item {
+    id: root
+
+    readonly property var config: Config.options.background.widgets.todo
+    readonly property var unfinished: Todo.unfinished
+    readonly property var completed: Todo.completed
+    readonly property real padding: 16
+    readonly property real cardRadius: 22
+
+    // The host window raises keyboard focus only while we actually need typing.
+    readonly property bool inputActive: addField.activeFocus || root.pickerTask !== null
+
+    property var pickerTask: null
+    property bool completedExpanded: false
+
+    // Size is driven bottom-up from the content, once: content column sizes
+    // itself from its children, the card takes that plus padding. Anchoring the
+    // column to fill the card instead would put height on both sides of the same
+    // binding and QML would resolve it to zero.
+    implicitWidth: root.config.width
+    implicitHeight: contentColumn.implicitHeight + root.padding * 2
+
+    function startTask(task) {
+        root.pickerTask = task;
+    }
+
+
+    Rectangle {
+        id: cardBackground
+        anchors.fill: parent
+        radius: root.cardRadius
+
+        // 10% primary over the compositor blur. Drafted at 5 / 10 / 62 percent
+        // against both a near-black and a blown-out region of the wallpaper;
+        // 5% could not hold text over the bright one.
+        color: Qt.rgba(
+            Appearance.colors.colPrimary.r,
+            Appearance.colors.colPrimary.g,
+            Appearance.colors.colPrimary.b,
+            root.config.tintOpacity)
+        border.width: 1
+        border.color: Appearance.colors.colLayer0Border
+
+        // Dragging happens from the header strip, like a titlebar. Rows own their
+        // own mouse areas, so making the whole card draggable would fight with
+        // checkbox and start clicks. Sits behind the content, not inside the
+        // layout — anchors on a layout-managed item are undefined behaviour.
+        MouseArea {
+            id: dragArea
+            anchors.top: parent.top
+            anchors.left: parent.left
+            anchors.right: parent.right
+            height: 56
+            cursorShape: containsPress ? Qt.ClosedHandCursor : Qt.OpenHandCursor
+            drag.target: root
+            drag.axis: Drag.XAndYAxis
+            onReleased: {
+                root.config.x = Math.round(root.x);
+                root.config.y = Math.round(root.y);
+            }
+        }
+
+        ColumnLayout {
+            id: contentColumn
+            // Left/right/top only. No bottom anchor, so height stays the layout's
+            // own implicitHeight and the card can size itself from it.
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.margins: root.padding
+            spacing: 0
+
+            // ── Header ────────────────────────────────────────────
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 10
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 0
+
+                    StyledText {
+                        text: `${root.unfinished.length}`
+                        font.pixelSize: 30
+                        font.weight: Font.DemiBold
+                        color: Appearance.colors.colOnLayer0
+                    }
+                    StyledText {
+                        Layout.fillWidth: true
+                        text: root.config.listName
+                        font.pixelSize: Appearance.font.pixelSize.small
+                        font.weight: Font.DemiBold
+                        color: Appearance.colors.colPrimary
+                        elide: Text.ElideRight
+                        maximumLineCount: 1
+                    }
+                }
+
+                Rectangle {
+                    Layout.alignment: Qt.AlignTop
+                    implicitWidth: 30
+                    implicitHeight: 30
+                    radius: width / 2
+                    color: Appearance.colors.colPrimary
+
+                    MaterialSymbol {
+                        anchors.centerIn: parent
+                        text: "checklist"
+                        iconSize: 17
+                        color: Appearance.colors.colOnPrimary
+                    }
+                }
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.topMargin: 13
+                Layout.bottomMargin: 5
+                implicitHeight: 1
+                color: Appearance.m3colors.m3outlineVariant
+            }
+
+            // ── Unfinished ────────────────────────────────────────
+            Repeater {
+                model: root.unfinished
+                delegate: TodoRow {
+                    required property var modelData
+                    Layout.fillWidth: true
+                    item: modelData
+                    onToggleRequested: Todo.toggleDoneById(modelData.id)
+                    onDeleteRequested: Todo.deleteById(modelData.id)
+                    onStartRequested: root.startTask(modelData)
+                }
+            }
+
+            // ── Empty state ───────────────────────────────────────
+            ColumnLayout {
+                Layout.fillWidth: true
+                Layout.topMargin: 10
+                Layout.bottomMargin: 10
+                spacing: 4
+                visible: root.unfinished.length === 0
+
+                MaterialSymbol {
+                    Layout.alignment: Qt.AlignHCenter
+                    text: "task_alt"
+                    iconSize: 32
+                    color: Appearance.m3colors.m3outline
+                }
+                StyledText {
+                    Layout.alignment: Qt.AlignHCenter
+                    text: Translation.tr("Nothing left today")
+                    font.pixelSize: Appearance.font.pixelSize.smaller
+                    color: Appearance.m3colors.m3outline
+                }
+            }
+
+            // ── Completed ─────────────────────────────────────────
+            MouseArea {
+                Layout.fillWidth: true
+                implicitHeight: 30
+                visible: root.config.showCompleted && root.completed.length > 0
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: root.completedExpanded = !root.completedExpanded
+
+                RowLayout {
+                    anchors.fill: parent
+                    spacing: 6
+
+                    StyledText {
+                        text: Translation.tr("Completed")
+                        font.pixelSize: Appearance.font.pixelSize.smaller
+                        color: Appearance.colors.colSubtext
+                    }
+                    Item { Layout.fillWidth: true }
+                    StyledText {
+                        text: `${root.completed.length}`
+                        font.pixelSize: Appearance.font.pixelSize.smaller
+                        color: Appearance.colors.colSubtext
+                    }
+                    MaterialSymbol {
+                        text: root.completedExpanded ? "expand_less" : "expand_more"
+                        iconSize: 18
+                        color: Appearance.colors.colSubtext
+                    }
+                }
+            }
+
+            Repeater {
+                model: root.completedExpanded ? root.completed : []
+                delegate: TodoRow {
+                    required property var modelData
+                    Layout.fillWidth: true
+                    item: modelData
+                    onToggleRequested: Todo.toggleDoneById(modelData.id)
+                    onDeleteRequested: Todo.deleteById(modelData.id)
+                }
+            }
+
+            // ── Add a task ────────────────────────────────────────
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.topMargin: 4
+                implicitHeight: 38
+                spacing: 11
+
+                Rectangle {
+                    implicitWidth: 20
+                    implicitHeight: 20
+                    radius: width / 2
+                    color: "transparent"
+                    border.width: 2
+                    border.color: addField.activeFocus
+                        ? Appearance.colors.colPrimary
+                        : Appearance.m3colors.m3outline
+
+                    MaterialSymbol {
+                        anchors.centerIn: parent
+                        text: "add"
+                        iconSize: 14
+                        color: addField.activeFocus
+                            ? Appearance.colors.colPrimary
+                            : Appearance.m3colors.m3outline
+                    }
+                }
+
+                StyledTextInput {
+                    id: addField
+                    Layout.fillWidth: true
+                    font.pixelSize: Appearance.font.pixelSize.small
+                    color: Appearance.colors.colOnLayer1
+
+                    onAccepted: {
+                        Todo.addTask(text);
+                        text = "";
+                    }
+                    Keys.onEscapePressed: {
+                        text = "";
+                        focus = false;
+                    }
+
+                    StyledText {
+                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.left: parent.left
+                        visible: addField.text.length === 0
+                        text: Translation.tr("Add a task…")
+                        font.pixelSize: Appearance.font.pixelSize.small
+                        color: Appearance.m3colors.m3outline
+                    }
+                }
+            }
+        }
+    }
+
+    // ── Duration picker ───────────────────────────────────────────
+    Rectangle {
+        anchors.fill: cardBackground
+        radius: root.cardRadius
+        visible: root.pickerTask !== null
+        color: Qt.rgba(
+            Appearance.colors.colLayer0.r,
+            Appearance.colors.colLayer0.g,
+            Appearance.colors.colLayer0.b,
+            0.94)
+        border.width: 1
+        border.color: Appearance.colors.colLayer0Border
+
+        // Swallow clicks so they don't reach the card underneath.
+        MouseArea { anchors.fill: parent }
+
+        DurationPicker {
+            anchors.centerIn: parent
+            width: parent.width
+            task: root.pickerTask
+            focus: root.pickerTask !== null
+            onAccepted: seconds => {
+                FocusTimer.start(root.pickerTask.id, root.pickerTask.content, seconds);
+                root.pickerTask = null;
+            }
+            onCancelled: root.pickerTask = null
+        }
+    }
+}

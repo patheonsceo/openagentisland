@@ -451,3 +451,83 @@ Forced to instantiate via `AgentService.load()` in `shell.qml`.
 **Next:** notch `agent` UI (status + permission Allow/Deny) — waiting on the
 user's visual references. State precedence: agent-permission > agent-status >
 media > volume/brightness > notification > idle.
+
+---
+
+## 6. DESKTOP WIDGETS — todo card + focus timer (as-built)
+
+First piece of the macOS conversion. Design was drafted and approved visually
+before any code: material weight, card anatomy and the start flow were compared
+against the real wallpaper rather than decided in the abstract.
+
+### 6.1 Why a separate layer surface, not `Background.qml`
+
+`Background.qml` already runs a `WidgetCanvas` on `WlrLayer.Bottom` and
+`AbstractBackgroundWidget` already gives free-drag, persisted position and
+wallpaper parallax. Putting the card there would have cost zero new surfaces,
+and it was the original plan. Two things ruled it out:
+
+- **Blur.** Hyprland runs blur with `xray` on, so a `blur` layerrule against our
+  own namespace frosts the *wallpaper* on the GPU for free. Inside the background
+  window there is nothing behind us to blur — we would have had to decode the
+  wallpaper a second time into a Qt `MultiEffect`, i.e. a second full-resolution
+  texture, purely for looks.
+- **Keyboard.** `Background.qml` never takes keyboard focus, so the "Add a task"
+  field could not be typed into. A separate surface sets
+  `WlrKeyboardFocus.OnDemand` only while a field is focused, and drops back to
+  `None` the moment it isn't, so it never steals keys from an app.
+
+Cost is one surface on one monitor. `mask: Region { item: card }` keeps the rest
+of the desktop clickable straight through.
+
+### 6.2 Layer rules at runtime, not in `~/.config/hypr`
+
+This project may not edit the user's Hyprland config. `DesktopWidgets.qml` and
+`FocusOverlay.qml` each push their own `layerrule blur` + `ignorealpha` via
+`hyprctl --batch` on completion. Idempotent, so re-applying on every reload is
+harmless, and losing them only costs the frost, never function.
+
+### 6.3 Card anatomy
+
+macOS Reminders proportions, Material You colour. 16px content margin and 11px
+minimum type are Apple's published widget numbers; corner radii are concentric
+(inner = outer − padding), which `StyledOverlayWidget` already expresses as
+`contentRadius`. Count-led header, accent list name, hairline rule, hollow 20px
+circle checkboxes that fill on completion, 40px row rhythm, single-line elide so
+card height stays predictable, start button revealed on hover only.
+
+Material is **10% `colPrimary` over compositor blur**. Drafted at 5 / 10 / 62
+percent against a wallpaper with both near-black and blown-out regions; 5% could
+not hold text over the bright one, 62% stopped reading as glass.
+
+### 6.4 Timer is wall-clock, like `TimerService`
+
+`Persistent.states.timer.focus` stores a unix `start`, shifted forward on resume
+to absorb pauses, rather than counting ticks. Survives suspend, and survives a
+shell reload: Quickshell rebuilds the singleton but Persistent still holds the
+timestamp, so a running session picks up where it was.
+
+Maximised is a take-over on `WlrLayer.Overlay` so it covers fullscreen apps.
+Minimised is a masked pill, also Overlay. Clicking the backdrop minimises rather
+than cancels — losing a running session to a stray click would be hostile.
+
+### 6.5 Gotchas hit
+
+- **Binding loop → zero size.** `root.implicitHeight` ← `card.implicitHeight` ←
+  `column.implicitHeight` while the column was `anchors.fill`-ed back to the
+  card puts height on both sides of one binding. QML resolves that to zero and
+  the widget renders nothing, silently — no error, the surface still exists in
+  `hyprctl layers`. Fixed by anchoring the column left/right/top only, so its
+  height stays its own `implicitHeight`. Same class of bug in `TodoRow`, which
+  read `parent.width` inside a layout; use `Layout.fillWidth` instead.
+- **`touch` does not trigger Quickshell's reloader.** Only real content changes
+  do. Cost some confusing minutes reading stale log output.
+- **`Todo.qml` had no `watchChanges`.** With two views on one list (sidebar and
+  desktop card) they drifted apart until the next reload. Now watched.
+- **Diagnosing an invisible widget:** raise it to `WlrLayer.Top` briefly. If it
+  is still invisible it is a sizing bug, not occlusion. Note the temporary change
+  applies to every running instance, including the host shell, which will then
+  paint over a nested session and look like a double render.
+- **Capture the nested session natively** with `WAYLAND_DISPLAY=wayland-2 grim`.
+  Screenshotting the nested window's rectangle on the host catches host overlays
+  sitting on top of it.

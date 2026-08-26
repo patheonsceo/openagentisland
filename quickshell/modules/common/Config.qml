@@ -209,6 +209,26 @@ Singleton {
                         property real x: 400
                         property real y: 100
                     }
+                    property JsonObject todo: JsonObject {
+                        property bool enable: true
+                        property string placementStrategy: "free" // "free", "leastBusy", "mostBusy"
+                        property real x: 1400
+                        property real y: 120
+                        property real width: 320
+                        property string listName: "Today"
+                        // Which monitor to show on. Empty means the first screen;
+                        // one list on three monitors would just be three copies.
+                        property string screenName: ""
+                        // Card material. Drafted at 5% / 10% / 62% against a wallpaper with both
+                        // near-black and blown-out regions; 10% was the only one legible in both.
+                        property real tintOpacity: 0.10
+                        property int blurRadius: 40
+                        property bool showCompleted: true
+                        property int maxVisibleTasks: 8
+                        // Duration presets offered when starting a task, in minutes.
+                        property list<int> durationPresets: [15, 25, 50]
+                        property int defaultDuration: 25
+                    }
                 }
                 property string wallpaperPath: ""
                 property string thumbnailPath: ""
@@ -564,6 +584,7 @@ Singleton {
             property JsonObject sounds: JsonObject {
                 property bool battery: false
                 property bool pomodoro: false
+                property bool focus: true
                 property string theme: "freedesktop"
             }
 

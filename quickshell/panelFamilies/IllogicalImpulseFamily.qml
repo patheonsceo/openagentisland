@@ -6,7 +6,9 @@ import qs.modules.ii.background
 import qs.modules.ii.bar
 import qs.modules.ii.island
 import qs.modules.ii.cheatsheet
+import qs.modules.ii.desktopWidgets
 import qs.modules.ii.dock
+import qs.modules.ii.focusTimer
 import qs.modules.ii.lock
 import qs.modules.ii.mediaControls
 import qs.modules.ii.notificationPopup
@@ -32,7 +34,9 @@ Scope {
     PanelLoader { component: IslandRight {} }
     PanelLoader { component: Background {} }
     PanelLoader { component: Cheatsheet {} }
+    PanelLoader { extraCondition: Config.options.background.widgets.todo.enable; component: DesktopWidgets {} }
     PanelLoader { extraCondition: Config.options.dock.enable; component: Dock {} }
+    PanelLoader { component: FocusOverlay {} }
     PanelLoader { component: Lock {} }
     PanelLoader { component: MediaControls {} }
     PanelLoader { component: NotificationPopup {} }
