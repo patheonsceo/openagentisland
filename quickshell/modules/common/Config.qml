@@ -462,6 +462,22 @@ Singleton {
                 }
             }
 
+            // macOS-style hot corners. Every corner defaults to "none", which
+            // means it is not created at all — an inert catcher in the top
+            // corners would swallow menubar clicks.
+            // Actions: none | overview | search | notifications | sidebarLeft | lock
+            property JsonObject hotCorners: JsonObject {
+                property bool enable: true
+                property int size: 6
+                // Pointers cross corners on the way elsewhere all the time, so
+                // a corner has to be dwelled on rather than merely touched.
+                property int dwellMs: 260
+                property string topLeft: "none"
+                property string topRight: "none"
+                property string bottomLeft: "overview"
+                property string bottomRight: "none"
+            }
+
             property JsonObject island: JsonObject {
                 // Screens the center notch renders on (names like "eDP-1", see 'hyprctl monitors').
                 // Empty = all screens. Left/right islands always render on every screen.

@@ -9,6 +9,7 @@ import qs.modules.ii.cheatsheet
 import qs.modules.ii.desktopWidgets
 import qs.modules.ii.dock
 import qs.modules.ii.focusTimer
+import qs.modules.ii.hotCorners
 import qs.modules.ii.lock
 import qs.modules.ii.macDock
 import qs.modules.ii.mediaControls
@@ -42,6 +43,7 @@ Scope {
     PanelLoader { extraCondition: Config.options.dock.enable && !Config.options.dock.macStyleDock; component: Dock {} }
     PanelLoader { extraCondition: Config.options.dock.enable && Config.options.dock.macStyleDock; component: MacDock {} }
     PanelLoader { component: FocusOverlay {} }
+    PanelLoader { component: HotCorners {} }
     PanelLoader { component: Lock {} }
     PanelLoader { component: MediaControls {} }
     PanelLoader { component: NotificationPopup {} }
