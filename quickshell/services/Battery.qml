@@ -38,12 +38,18 @@ Singleton {
         }
     }
 
+    // NOT isPluggedIn: that is false whenever the pack reads Full on AC, which
+    // would have parked the machine in power-saver while plugged in. UPower
+    // reports the adapter itself.
+    readonly property bool runningOnBattery: UPower.onBattery
+    onRunningOnBatteryChanged: root.applyAutoProfile()
+
     function applyAutoProfile() {
         if (!(root.autoProfileCfg?.enable ?? false)) return;
         if (!root.available) return;
-        const want = root.profileFromName(root.isPluggedIn
-            ? (root.autoProfileCfg?.onAc ?? "balanced")
-            : (root.autoProfileCfg?.onBattery ?? "powerSaver"));
+        const want = root.profileFromName(root.runningOnBattery
+            ? (root.autoProfileCfg?.onBattery ?? "powerSaver")
+            : (root.autoProfileCfg?.onAc ?? "balanced"));
         if (PowerProfiles.profile === want) return;
         PowerProfiles.profile = want;
     }
@@ -126,9 +132,6 @@ Singleton {
     }
 
     onIsPluggedInChanged: {
-        // Only on the transition, so a profile chosen by hand mid-session is
-        // not yanked back a second later.
-        root.applyAutoProfile();
         if (!root.available || !root.soundEnabled) return;
         if (isPluggedIn) {
             Audio.playSystemSound("power-plug")
