@@ -220,6 +220,7 @@ Singleton {
             property string iconNerd: Config.options.appearance.fonts.iconNerd
             property string monospace: Config.options.appearance.fonts.monospace
             property string reading: Config.options.appearance.fonts.reading
+            property string serif: Config.options.appearance.fonts.serif
             property string expressive: Config.options.appearance.fonts.expressive
         }
         property QtObject variableAxes: QtObject {

@@ -232,7 +232,7 @@ ContentPage {
             wrapMode: Text.Wrap
             font.pixelSize: Appearance.font.pixelSize.smaller
             color: Appearance.colors.colSubtext
-            text: Translation.tr("Click one to put it on the face. “local” is this machine's own clock; anything else is an IANA name like Europe/London.")
+            text: Translation.tr("Click one to put it on the face. “local” is this machine's own clock. City names work — San Francisco, Tokyo, London — as does any IANA name like Europe/London.")
         }
 
         Flow {
@@ -309,7 +309,7 @@ ContentPage {
             MaterialTextField {
                 id: zoneField
                 Layout.fillWidth: true
-                placeholderText: Translation.tr("Add a zone, e.g. Asia/Tokyo")
+                placeholderText: Translation.tr("Add a zone, e.g. San Francisco or Asia/Tokyo")
                 onAccepted: addZone.commit()
             }
 

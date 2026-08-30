@@ -43,13 +43,51 @@ DesktopWidget {
         ? root.config.activeTimezone
         : (root.zones[0] ?? "local")
 
-    // zone name -> minutes east of UTC
+    // Friendly names people actually say, mapped to the IANA zone the system
+    // needs and the label to show. Typing the IANA name directly still works;
+    // this just means "San Francisco" does not have to be spelled
+    // "America/Los_Angeles" to be understood.
+    readonly property var zoneAliases: ({
+        "sf":            { zone: "America/Los_Angeles", label: "San Francisco" },
+        "san francisco": { zone: "America/Los_Angeles", label: "San Francisco" },
+        "los angeles":   { zone: "America/Los_Angeles", label: "Los Angeles" },
+        "seattle":       { zone: "America/Los_Angeles", label: "Seattle" },
+        "nyc":           { zone: "America/New_York",    label: "New York" },
+        "new york":      { zone: "America/New_York",    label: "New York" },
+        "chicago":       { zone: "America/Chicago",     label: "Chicago" },
+        "toronto":       { zone: "America/Toronto",     label: "Toronto" },
+        "london":        { zone: "Europe/London",       label: "London" },
+        "paris":         { zone: "Europe/Paris",        label: "Paris" },
+        "berlin":        { zone: "Europe/Berlin",       label: "Berlin" },
+        "dubai":         { zone: "Asia/Dubai",          label: "Dubai" },
+        "india":         { zone: "Asia/Kolkata",        label: "India" },
+        "delhi":         { zone: "Asia/Kolkata",        label: "Delhi" },
+        "mumbai":        { zone: "Asia/Kolkata",        label: "Mumbai" },
+        "bangalore":     { zone: "Asia/Kolkata",        label: "Bangalore" },
+        "singapore":     { zone: "Asia/Singapore",      label: "Singapore" },
+        "tokyo":         { zone: "Asia/Tokyo",          label: "Tokyo" },
+        "sydney":        { zone: "Australia/Sydney",    label: "Sydney" }
+    })
+
+    function aliasFor(zone) {
+        return root.zoneAliases[`${zone}`.trim().toLowerCase()] ?? null;
+    }
+
+    // What to hand to `TZ=`.
+    function resolveZone(zone) {
+        if (zone === "local") return "local";
+        const a = root.aliasFor(zone);
+        return a ? a.zone : zone;
+    }
+
+    // Keyed by RESOLVED zone, so two entries naming the same place share one
+    // lookup: minutes east of UTC.
     property var offsets: ({})
     readonly property int localOffset: -(new Date().getTimezoneOffset())
 
     function offsetFor(zone) {
         if (zone === "local") return root.localOffset;
-        const v = root.offsets[zone];
+        const v = root.offsets[root.resolveZone(zone)];
         return v === undefined ? root.localOffset : v;
     }
 
@@ -61,7 +99,9 @@ DesktopWidget {
 
     function zoneLabel(zone) {
         if (zone === "local") return Translation.tr("Local");
-        const tail = zone.split("/").pop();
+        const a = root.aliasFor(zone);
+        if (a) return a.label;
+        const tail = `${zone}`.split("/").pop();
         return tail.replace(/_/g, " ");
     }
 
@@ -106,7 +146,11 @@ DesktopWidget {
     }
 
     function refreshOffsets() {
-        const wanted = root.zones.filter(z => z !== "local");
+        const wanted = [];
+        for (const z of root.zones) {
+            const r = root.resolveZone(z);
+            if (r !== "local" && wanted.indexOf(r) < 0) wanted.push(r);
+        }
         if (wanted.length === 0) { root.offsets = ({}); return; }
         // Single shell doing every zone at once, rather than a process each.
         const script = wanted
@@ -204,8 +248,17 @@ DesktopWidget {
 
             StyledText {
                 text: root.timeText
-                font.pixelSize: 42
-                font.weight: Font.Light
+                // Serif, and a display cut at that — at 46px the time is the
+                // card's heading, not UI chrome, and the sans face read as a
+                // status readout rather than something worth looking at.
+                font.family: Appearance.font.family.serif
+                // StyledText applies the MAIN font's variable axes unless the
+                // text is pure digits, and "6:24" is not. Left alone, Google
+                // Sans Flex's wght axis rides along and overrides the weight
+                // set here, so the serif never renders at its own default.
+                font.variableAxes: ({})
+                font.pixelSize: 46
+                font.weight: Font.Normal
                 color: Appearance.colors.colOnLayer0
             }
             StyledText {
@@ -213,6 +266,8 @@ DesktopWidget {
                 Layout.bottomMargin: 8
                 visible: root.config.twelveHour
                 text: root.meridiem
+                font.family: Appearance.font.family.serif
+                font.variableAxes: ({})
                 font.pixelSize: Appearance.font.pixelSize.small
                 font.weight: Font.DemiBold
                 color: Appearance.colors.colSubtext

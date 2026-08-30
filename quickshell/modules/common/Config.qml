@@ -114,6 +114,8 @@ Singleton {
                     property string iconNerd: "JetBrains Mono NF"
                     property string monospace: "JetBrains Mono NF"
                     property string reading: "Readex Pro"
+                    // Display cut rather than the text cut — it is drawn large.
+                    property string serif: "Noto Serif Display"
                     property string expressive: "Space Grotesk"
                 }
                 property JsonObject transparency: JsonObject {
