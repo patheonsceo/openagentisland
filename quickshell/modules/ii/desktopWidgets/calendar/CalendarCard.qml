@@ -22,7 +22,9 @@ DesktopWidget {
     widgetId: "calendar"
     config: Config.options.background.widgets.calendar
 
-    minWidth: 260
+    // Month and year now share a line with the nav cluster, so the floor has to
+    // clear the widest case: "September 2026" plus three 30px buttons.
+    minWidth: 300
     maxWidth: 520
     resizableVertical: false
     dragHandleHeight: 44
@@ -111,8 +113,12 @@ DesktopWidget {
             Layout.fillWidth: true
             spacing: 8
 
-            ColumnLayout {
-                spacing: 0
+            // Month and year on one line, reading as a single title: the
+            // stacked version made the header two rows tall for four
+            // characters of information.
+            RowLayout {
+                Layout.alignment: Qt.AlignVCenter
+                spacing: 6
 
                 StyledText {
                     text: root.monthNames[root.viewMonth]
@@ -122,7 +128,11 @@ DesktopWidget {
                 }
                 StyledText {
                     text: `${root.viewYear}`
-                    font.pixelSize: Appearance.font.pixelSize.smaller
+                    // Same size so the two share a baseline without needing to
+                    // be aligned to one; the weight and colour carry the
+                    // hierarchy instead.
+                    font.pixelSize: Appearance.font.pixelSize.large
+                    font.weight: Font.Normal
                     color: Appearance.colors.colSubtext
                 }
             }
