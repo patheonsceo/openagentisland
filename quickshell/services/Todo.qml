@@ -145,6 +145,11 @@ Singleton {
         return item.sessions.reduce((sum, session) => sum + (session.seconds ?? 0), 0);
     }
 
+    function clearAll() {
+        root.list = [];
+        root.save();
+    }
+
     function clearCompleted() {
         root.list = root.list.filter(item => !item.done);
         root.save();

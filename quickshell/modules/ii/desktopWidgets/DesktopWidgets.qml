@@ -85,6 +85,15 @@ Scope {
                 function onReadyChanged() { widgetWindow.restorePosition(); }
             }
 
+            // Position lives in config, but nothing re-applied it when the value
+            // changed — so editing it (or the menu's "Reset position") moved the
+            // number and left the widget where it was.
+            Connections {
+                target: root.todoConfig
+                function onXChanged() { widgetWindow.restorePosition(); }
+                function onYChanged() { widgetWindow.restorePosition(); }
+            }
+
             TodoCard {
                 id: todoCard
                 screenWidth: widgetWindow.width

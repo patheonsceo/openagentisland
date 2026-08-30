@@ -40,6 +40,9 @@ Item {
     property color base: Appearance.colors.colLayer0
     property real baseOpacity: 0.42
     property real blurMax: 64
+    // Solid skips sampling the wallpaper entirely — no blur pass, no decode —
+    // so it is also the cheaper mode, not just the more opaque one.
+    property bool solid: false
     readonly property real pad: root.blurMax + 16
 
     readonly property bool wallpaperIsVideo: {
@@ -100,6 +103,7 @@ Item {
         MultiEffect {
             anchors.fill: parent
             anchors.margins: -root.pad
+            visible: !root.solid
             source: sampled
             blurEnabled: true
             blur: 1.0
@@ -110,7 +114,8 @@ Item {
 
         Rectangle {
             anchors.fill: parent
-            color: Qt.rgba(root.base.r, root.base.g, root.base.b, root.baseOpacity)
+            color: Qt.rgba(root.base.r, root.base.g, root.base.b,
+                root.solid ? Math.max(root.baseOpacity, 0.92) : root.baseOpacity)
         }
 
         Rectangle {

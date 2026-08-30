@@ -32,6 +32,9 @@ Item {
     property int screenWidth: 1920
     property int screenHeight: 1080
 
+    property bool menuOpen: false
+    property point menuPos: Qt.point(0, 0)
+
     property var pickerTask: null
     property bool completedExpanded: false
 
@@ -47,7 +50,11 @@ Item {
     // natural size, so the card grows exactly by what you dragged and never
     // fights the content-driven height binding above (which is what collapsed
     // it to zero the first time round).
-    readonly property real naturalListHeight: taskColumn.implicitHeight
+    // An empty list has no rows, so fall back to a sensible block for the
+    // centred empty state rather than collapsing the area to nothing.
+    readonly property real naturalListHeight: root.unfinished.length > 0
+        ? taskColumn.implicitHeight
+        : 130
     readonly property bool listIsClamped: root.config.listHeight > 0
     readonly property real effectiveListHeight: root.listIsClamped
         ? Math.max(40, root.config.listHeight)
@@ -69,6 +76,7 @@ Item {
         tintOpacity: root.config.tintOpacity
         baseOpacity: root.config.baseOpacity
         blurMax: root.config.blurRadius
+        solid: root.config.solidMaterial
     }
 
     Rectangle {
@@ -89,9 +97,18 @@ Item {
             anchors.left: parent.left
             anchors.right: parent.right
             height: 56
+            acceptedButtons: Qt.LeftButton | Qt.RightButton
             cursorShape: containsPress ? Qt.ClosedHandCursor : Qt.OpenHandCursor
-            drag.target: root
+            // Left drags, right opens settings. Rows keep their own right-click
+            // (delete), so the menu lives on the header strip rather than the
+            // whole card.
+            drag.target: pressedButtons & Qt.LeftButton ? root : null
             drag.axis: Drag.XAndYAxis
+            onPressed: mouse => {
+                if (mouse.button !== Qt.RightButton) return;
+                root.menuPos = Qt.point(mouse.x, mouse.y);
+                root.menuOpen = true;
+            }
             onReleased: {
                 root.config.x = Math.round(root.x);
                 root.config.y = Math.round(root.y);
@@ -159,31 +176,78 @@ Item {
             }
 
             // ── Unfinished ────────────────────────────────────────
-            // Clipped + flickable so a dragged-down height means "show fewer
-            // rows and scroll", rather than squashing every row.
-            Flickable {
+            // One area that either holds the rows or the empty state. The empty
+            // state lives INSIDE it and centres, because sitting it after the
+            // list in the column parked it at the bottom of a tall card with a
+            // wall of dead space above.
+            Item {
+                id: listArea
                 Layout.fillWidth: true
                 implicitHeight: root.effectiveListHeight
-                contentHeight: taskColumn.implicitHeight
-                clip: true
-                interactive: root.listIsClamped && contentHeight > height
-                boundsBehavior: Flickable.StopAtBounds
-                flickDeceleration: 6000
 
+                // ── Empty state ───────────────────────────────
                 ColumnLayout {
-                    id: taskColumn
+                    anchors.centerIn: parent
                     width: parent.width
-                    spacing: 0
+                    spacing: 10
+                    visible: root.unfinished.length === 0
 
-                    Repeater {
-                        model: root.unfinished
-                        delegate: TodoRow {
-                            required property var modelData
-                            Layout.fillWidth: true
-                            item: modelData
-                            onToggleRequested: Todo.toggleDoneById(modelData.id)
-                            onDeleteRequested: Todo.deleteById(modelData.id)
-                            onStartRequested: root.startTask(modelData)
+                    MaterialSymbol {
+                        Layout.alignment: Qt.AlignHCenter
+                        text: root.completed.length > 0 ? "task_alt" : "checklist"
+                        iconSize: 34
+                        fill: root.completed.length > 0 ? 1 : 0
+                        color: Appearance.colors.colPrimary
+                        opacity: 0.55
+                    }
+                    StyledText {
+                        Layout.alignment: Qt.AlignHCenter
+                        Layout.fillWidth: true
+                        horizontalAlignment: Text.AlignHCenter
+                        text: root.completed.length > 0
+                            ? Translation.tr("All done")
+                            : Translation.tr("Nothing here yet")
+                        font.pixelSize: Appearance.font.pixelSize.small
+                        font.weight: Font.DemiBold
+                        color: Appearance.colors.colOnLayer1
+                    }
+                    StyledText {
+                        Layout.alignment: Qt.AlignHCenter
+                        Layout.fillWidth: true
+                        horizontalAlignment: Text.AlignHCenter
+                        text: root.completed.length > 0
+                            ? Translation.tr("%1 finished today").arg(root.completed.length)
+                            : Translation.tr("Add one below to get started")
+                        font.pixelSize: Appearance.font.pixelSize.smaller
+                        color: Appearance.colors.colSubtext
+                        wrapMode: Text.Wrap
+                    }
+                }
+
+                Flickable {
+                    anchors.fill: parent
+                    visible: root.unfinished.length > 0
+                    contentHeight: taskColumn.implicitHeight
+                    clip: true
+                    interactive: contentHeight > height
+                    boundsBehavior: Flickable.StopAtBounds
+                    flickDeceleration: 6000
+
+                    ColumnLayout {
+                        id: taskColumn
+                        width: parent.width
+                        spacing: 0
+
+                        Repeater {
+                            model: root.unfinished
+                            delegate: TodoRow {
+                                required property var modelData
+                                Layout.fillWidth: true
+                                item: modelData
+                                onToggleRequested: Todo.toggleDoneById(modelData.id)
+                                onDeleteRequested: Todo.deleteById(modelData.id)
+                                onStartRequested: root.startTask(modelData)
+                            }
                         }
                     }
                 }
@@ -195,7 +259,8 @@ Item {
                     anchors.right: parent.right
                     anchors.bottom: parent.bottom
                     height: 18
-                    visible: root.listIsClamped && parent.contentHeight > parent.height
+                    visible: root.unfinished.length > 0
+                        && taskColumn.implicitHeight > listArea.height
                     gradient: Gradient {
                         GradientStop { position: 0.0; color: "transparent" }
                         GradientStop {
@@ -205,28 +270,6 @@ Item {
                                            Appearance.colors.colLayer0.b, 0.55)
                         }
                     }
-                }
-            }
-
-            // ── Empty state ───────────────────────────────────────
-            ColumnLayout {
-                Layout.fillWidth: true
-                Layout.topMargin: 10
-                Layout.bottomMargin: 10
-                spacing: 4
-                visible: root.unfinished.length === 0
-
-                MaterialSymbol {
-                    Layout.alignment: Qt.AlignHCenter
-                    text: "task_alt"
-                    iconSize: 32
-                    color: Appearance.colors.colSubtext
-                }
-                StyledText {
-                    Layout.alignment: Qt.AlignHCenter
-                    text: Translation.tr("Nothing left today")
-                    font.pixelSize: Appearance.font.pixelSize.smaller
-                    color: Appearance.colors.colSubtext
                 }
             }
 
@@ -340,6 +383,31 @@ Item {
         ResizeGrip { edge: "right" }
         ResizeGrip { edge: "bottom" }
         ResizeGrip { edge: "corner" }
+
+    // ── Settings menu ─────────────────────────────────────────────
+    // Click-away catcher, only alive while the menu is. Sized to the whole
+    // surface so a click anywhere outside dismisses it.
+    MouseArea {
+        parent: root.parent
+        anchors.fill: parent
+        visible: root.menuOpen
+        acceptedButtons: Qt.LeftButton | Qt.RightButton
+        z: 90
+        onClicked: root.menuOpen = false
+    }
+
+    TodoMenu {
+        id: settingsMenu
+        open: root.menuOpen
+        z: 100
+        // Kept inside the card's surface: flip to the other side when the menu
+        // would run off the bottom or right of the screen.
+        x: Math.min(root.menuPos.x, root.screenWidth - root.x - width - 8)
+        y: root.menuPos.y + height + root.y > root.screenHeight
+            ? root.menuPos.y - height
+            : root.menuPos.y
+        onRequestClose: root.menuOpen = false
+    }
 
     // ── Duration picker ───────────────────────────────────────────
     Rectangle {

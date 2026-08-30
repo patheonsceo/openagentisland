@@ -18,7 +18,15 @@ Item {
     required property var task
     property int customMinutes: Config.options.background.widgets.todo.defaultDuration
     property int selectedPreset: -1   // index into presets, -1 when custom is armed
-    readonly property var presets: Config.options.background.widgets.todo.durationPresets
+    // Parsed from a comma-separated string; see Config for why it is not a list.
+    // Falls back rather than throwing, so a mistyped config cannot break the picker.
+    readonly property var presets: {
+        const raw = Config.options.background.widgets.todo.durationPresets ?? "";
+        const parsed = `${raw}`.split(",")
+            .map(v => parseInt(v.trim(), 10))
+            .filter(v => !isNaN(v) && v > 0);
+        return parsed.length > 0 ? parsed : [15, 25, 50];
+    }
     readonly property int chosenSeconds: root.selectedPreset >= 0
         ? root.presets[root.selectedPreset] * 60
         : root.customMinutes * 60

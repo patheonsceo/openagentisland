@@ -776,3 +776,32 @@ input and makes the card judder — the same trap the dock magnification fell in
 
 The right-edge grip is 10px and the card's content padding is 16px, so the grip
 sits inside the padding and never steals clicks from a row's ▶ button.
+
+### 6.7 Settings menu, empty state, and a crash worth remembering
+
+Right-click the header strip for settings: material (translucent/solid + an
+opacity slider), show/hide completed, clear completed, clear all, reset size,
+reset position, hide widget. Destructive rows **arm on the first click and fire
+on the second** — a stray click can never wipe the list. The menu is a plain Item
+inside the widget's own layer surface, not a PopupWindow; the surface is already
+full-screen so a child at the click point is enough.
+
+Empty state now lives INSIDE the list area and centres. Sitting it after the list
+in the column parked it at the bottom of a tall card with a wall of dead space
+above — obvious the moment the widget became resizable, invisible before.
+
+**A list-typed property in a JsonAdapter JsonObject hard-crashes the shell.**
+`property list<int> durationPresets: [15, 25, 50]` serialises back out to
+config.json as `null`, and reading that null in on the NEXT launch kills the
+process about a second after "Configuration Loaded" — no QML error, no red reload
+panel, nothing in the log but `QEventLoop: Cannot be used without
+QCoreApplication` during teardown. `property var` did not help; the value is
+still written as null.
+
+Store list-shaped config as a **comma-separated string** and parse it defensively
+in QML. `list<string>` properties that already hold values (e.g. `dock.pinnedApps`)
+are fine — the failure is a list default that has never been written.
+
+Two things this cost that are worth internalising: the crash only appears on the
+*second* launch, so a single restart looks like success; and disabling the widget
+did not stop it, because the fault is in reading the config, not in rendering.

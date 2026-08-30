@@ -233,11 +233,20 @@ Singleton {
                         // Luminance floor under the blur, so the card stays readable
                         // over bright patches of wallpaper.
                         property real baseOpacity: 0.42
+                        // Solid drops the wallpaper blur behind the card and leans on
+                        // the base layer instead. Still keeps a faint tint so it reads
+                        // as part of the wallpaper's palette, not a grey box.
+                        property bool solidMaterial: false
                         property int blurRadius: 64
                         property bool showCompleted: true
                         property int maxVisibleTasks: 8
                         // Duration presets offered when starting a task, in minutes.
-                        property list<int> durationPresets: [15, 25, 50]
+                        // A comma-separated STRING, not a list. A list-typed property
+                        // in this JsonObject serialises back out as `null`, and reading
+                        // that null in on the next launch hard-crashes the whole shell —
+                        // no QML error, just a dead process a second after
+                        // "Configuration Loaded". Strings round-trip reliably.
+                        property string durationPresets: "15,25,50"
                         property int defaultDuration: 25
                     }
                 }
