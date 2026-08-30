@@ -40,6 +40,8 @@ Scope {
 
     readonly property int barHeight: 30
     readonly property int scrimHeight: 46
+    readonly property string material: Config.options?.bar?.menubarMaterial ?? "bar"
+    readonly property real materialOpacity: Config.options?.bar?.menubarOpacity ?? 0.55
     readonly property int sideMargin: 13
 
     Variants {
@@ -82,9 +84,35 @@ Scope {
             readonly property bool focusedHere:
                 (Hyprland.focusedMonitor?.name ?? "") === (barWindow.screen.name ?? "")
 
+            // A flat translucent bar, matching the dock's material. The notch
+            // then reads as a cutout in a real bar rather than a pill floating
+            // in a gradient — which is what a MacBook actually looks like.
+            Rectangle {
+                visible: root.material === "bar"
+                anchors.top: parent.top
+                anchors.left: parent.left
+                anchors.right: parent.right
+                height: root.barHeight
+                color: Qt.rgba(Appearance.colors.colLayer0.r,
+                               Appearance.colors.colLayer0.g,
+                               Appearance.colors.colLayer0.b,
+                               root.materialOpacity)
+
+                // Only a bottom edge: the bar runs to the screen edges, so a
+                // full border would draw three lines that are not there.
+                Rectangle {
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.bottom: parent.bottom
+                    height: 1
+                    color: Qt.rgba(1, 1, 1, 0.07)
+                }
+            }
+
             // Scrim. Opaque at the top edge, nothing by the bottom — so there is
             // ground under the text but never a visible border.
             Rectangle {
+                visible: root.material === "scrim"
                 anchors.top: parent.top
                 anchors.left: parent.left
                 anchors.right: parent.right

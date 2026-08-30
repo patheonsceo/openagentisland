@@ -342,6 +342,13 @@ Singleton {
                 property int cornerStyle: 0 // 0: Hug | 1: Float | 2: Plain rectangle
                 property bool floatStyleShadow: true // Show shadow behind bar when cornerStyle == 1 (Float)
                 property bool borderless: false // true for no grouping of items
+                // "scrim" fades to nothing by the bottom edge; "bar" is a flat
+                // translucent surface like the dock. Menus want "bar": an open
+                // menu's title needs a highlight that visually connects to the
+                // dropdown, and a highlight cannot sit consistently on a
+                // gradient that is 74% opaque at the top and 0% at the bottom.
+                property string menubarMaterial: "bar"   // bar | scrim
+                property real menubarOpacity: 0.55
                 property string topLeftIcon: "spark" // Options: "distro" or any icon name in ~/.config/quickshell/ii/assets/icons
                 property bool showBackground: true
                 property bool verbose: true
