@@ -345,7 +345,11 @@ Scope {
                 StyledText {
                     Layout.alignment: Qt.AlignVCenter
                     visible: Battery.available
-                    text: `${Math.round(Battery.percentage * 100)}%`
+                    // Time remaining beside the percentage while on battery —
+                    // the number you actually want is "how long", not "how full".
+                    text: Battery.timeRemaining > 0
+                        ? `${Math.round(Battery.percentage * 100)}%  ${Battery.formatRemaining(Battery.timeRemaining)}`
+                        : `${Math.round(Battery.percentage * 100)}%`
                     font.pixelSize: Appearance.font.pixelSize.smallest
                     font.family: Appearance.font.family.monospace
                     color: (Battery.isLow && !Battery.isCharging)

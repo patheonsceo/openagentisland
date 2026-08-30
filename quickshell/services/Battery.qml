@@ -67,6 +67,54 @@ Singleton {
     }
 
     property real energyRate: UPower.displayDevice.changeRate
+
+    // ── Smoothed time remaining ───────────────────────────────────
+    // UPower's timeToEmpty is derived from the instantaneous draw, so it
+    // swings with whatever the CPU did in the last second — measured here it
+    // ranged 12W to 29W inside seventy seconds, which is the difference
+    // between "3.8 hours left" and "1.6 hours left". A number that halves
+    // while you look at it is worse than no number, so this averages the draw
+    // over a couple of minutes before dividing.
+    readonly property real energyNow: UPower.displayDevice.energy
+    property var rateSamples: []
+    readonly property int rateWindow: 12          // samples, at 10s each
+
+    readonly property real smoothedRate: {
+        const s = root.rateSamples;
+        if (s.length === 0) return 0;
+        return s.reduce((a, b) => a + b, 0) / s.length;
+    }
+
+    // Seconds until empty at the averaged draw. 0 when it cannot be known:
+    // charging, or not enough samples collected yet to mean anything.
+    readonly property real timeRemaining: {
+        if (root.isPluggedIn || root.rateSamples.length < 3) return 0;
+        if (root.smoothedRate <= 0 || root.energyNow <= 0) return 0;
+        return (root.energyNow / root.smoothedRate) * 3600;
+    }
+
+    function formatRemaining(seconds) {
+        if (seconds <= 0) return "";
+        const h = Math.floor(seconds / 3600);
+        const m = Math.round((seconds % 3600) / 60);
+        if (h <= 0) return `${m}m`;
+        return `${h}h ${m}m`;
+    }
+
+    Timer {
+        interval: 10000
+        running: true
+        repeat: true
+        onTriggered: {
+            // Charging or a bogus reading contributes nothing; keeping zeros
+            // in the window would drag the average toward "forever".
+            if (root.isPluggedIn) { root.rateSamples = []; return; }
+            const r = root.energyRate;
+            if (!(r > 0)) return;
+            const next = root.rateSamples.concat([r]);
+            root.rateSamples = next.slice(Math.max(0, next.length - root.rateWindow));
+        }
+    }
     property real timeToEmpty: UPower.displayDevice.timeToEmpty
     property real timeToFull: UPower.displayDevice.timeToFull
 
