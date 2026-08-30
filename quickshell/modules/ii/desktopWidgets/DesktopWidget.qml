@@ -79,22 +79,50 @@ Item {
     implicitHeight: contentHolder.implicitHeight + widget.padding * 2
 
     // ── Position ──────────────────────────────────────────────────
+    // True once the surface and the widget both have real geometry. Until then
+    // any clamp is meaningless: the layer surface starts at zero width, so
+    // `screenWidth - width` is negative and every widget pins to the top-left
+    // corner. That is exactly what happened when this logic moved out of the
+    // host, which used to re-run it on every window resize.
+    readonly property bool sized: widget.screenWidth > 0 && widget.screenHeight > 0
+        && widget.width > 0 && widget.height > 0
+
     function clampX(v) {
-        return Math.max(0, Math.min(v, widget.screenWidth - widget.width));
+        const max = widget.screenWidth - widget.width;
+        if (!(max > 0)) return v;
+        return Math.max(0, Math.min(v, max));
     }
     function clampY(v) {
-        return Math.max(0, Math.min(v, widget.screenHeight - widget.height));
+        const max = widget.screenHeight - widget.height;
+        if (!(max > 0)) return v;
+        return Math.max(0, Math.min(v, max));
     }
 
     function restorePosition() {
+        if (!widget.sized) return;
         widget.x = widget.clampX(widget.config.x);
         widget.y = widget.clampY(widget.config.y);
+    }
+
+    // Re-apply as soon as the geometry becomes real, and whenever it changes
+    // afterwards — the screen can be resized and the card grows with its
+    // content. Never mid-gesture, or it would fight the drag.
+    onSizedChanged: widget.restorePosition()
+    onWidthChanged: if (!widget.interacting) widget.restorePosition()
+    onHeightChanged: if (!widget.interacting) widget.restorePosition()
+
+    Connections {
+        target: widget.board
+        function onScreenWidthChanged() { widget.restorePosition(); }
+        function onScreenHeightChanged() { widget.restorePosition(); }
     }
 
     // The single place a finished gesture becomes a stored position. Placement
     // mode is applied here and nowhere else, so free/snap/grid stay one concept
     // rather than three code paths.
     function commitPosition() {
+        // Never persist a position derived from geometry we do not have yet.
+        if (!widget.sized) return;
         const placed = widget.board.placeWidget(widget, widget.x, widget.y);
         widget.x = widget.clampX(placed.x);
         widget.y = widget.clampY(placed.y);
