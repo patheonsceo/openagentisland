@@ -247,7 +247,12 @@ Scope {
                         source: {
                             const _ = iconImage.retryTick;
                             if (item.appId.length === 0) return "";
-                            return Quickshell.iconPath(AppSearch.guessIcon(item.appId), "image-missing");
+                            // "image-missing" renders a broken-image glyph — a
+                            // visible error in the middle of the dock. Every
+                            // other module here falls back to the generic app
+                            // icon, which at least looks deliberate.
+                            return Quickshell.iconPath(AppSearch.guessIcon(item.appId),
+                                                       "application-x-executable");
                         }
                         Timer {
                             interval: 500
