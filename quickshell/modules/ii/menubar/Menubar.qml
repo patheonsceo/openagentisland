@@ -246,14 +246,9 @@ Scope {
                 // Workspaces sit at the right end of the menu titles, compact —
                 // they are an indicator, not a menu, so they read better after
                 // the things that are.
-                IslandWorkspaces {
+                BarWorkspaces {
                     Layout.alignment: Qt.AlignVCenter
                     Layout.leftMargin: 10
-                    height: root.barHeight
-                    usedColor: Appearance.colors.colOnLayer0
-                    activeColor: Appearance.colors.colPrimary
-                    emptyOpacity: 0.35
-                    capsuleWidth: 18
                 }
             }
 
