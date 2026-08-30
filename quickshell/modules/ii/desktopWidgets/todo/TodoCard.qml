@@ -249,6 +249,10 @@ Item {
                                 onToggleRequested: Todo.toggleDoneById(modelData.id)
                                 onDeleteRequested: Todo.deleteById(modelData.id)
                                 onStartRequested: root.startTask(modelData)
+                                onMenuRequested: {
+                                    root.menuPos = Qt.point(root.width / 2, 60);
+                                    root.menuOpen = true;
+                                }
                             }
                         }
                     }
@@ -315,6 +319,74 @@ Item {
                     item: modelData
                     onToggleRequested: Todo.toggleDoneById(modelData.id)
                     onDeleteRequested: Todo.deleteById(modelData.id)
+                }
+            }
+
+            // ── Undo ──────────────────────────────────────────────
+            // Any removal is recoverable for a while. A task list that can lose
+            // work to one click is not one you can trust with real work.
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.topMargin: Todo.canUndo ? 6 : 0
+                implicitHeight: Todo.canUndo ? 34 : 0
+                visible: implicitHeight > 0
+                clip: true
+                radius: Appearance.rounding.small
+                color: Appearance.colors.colLayer2
+
+                Behavior on implicitHeight {
+                    animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+                }
+
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.leftMargin: 10
+                    anchors.rightMargin: 6
+                    spacing: 8
+
+                    MaterialSymbol {
+                        text: "history"
+                        iconSize: 15
+                        color: Appearance.colors.colSubtext
+                    }
+                    StyledText {
+                        Layout.fillWidth: true
+                        text: Todo.undoLabel
+                        font.pixelSize: Appearance.font.pixelSize.smallest
+                        color: Appearance.colors.colOnLayer2
+                        elide: Text.ElideRight
+                    }
+                    Rectangle {
+                        implicitWidth: undoText.implicitWidth + 18
+                        implicitHeight: 24
+                        radius: Appearance.rounding.verysmall
+                        color: undoArea.containsMouse
+                            ? Appearance.colors.colPrimary
+                            : Appearance.colors.colPrimaryContainer
+
+                        Behavior on color {
+                            animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(this)
+                        }
+
+                        StyledText {
+                            id: undoText
+                            anchors.centerIn: parent
+                            text: Translation.tr("Undo")
+                            font.pixelSize: Appearance.font.pixelSize.smallest
+                            font.weight: Font.DemiBold
+                            color: undoArea.containsMouse
+                                ? Appearance.colors.colOnPrimary
+                                : Appearance.colors.colOnPrimaryContainer
+                        }
+
+                        MouseArea {
+                            id: undoArea
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: Todo.undoLast()
+                        }
+                    }
                 }
             }
 
@@ -428,8 +500,13 @@ Item {
         border.width: 1
         border.color: Appearance.colors.colLayer0Border
 
-        // Swallow clicks so they don't reach the card underneath.
-        MouseArea { anchors.fill: parent }
+        // Clicking off the picker cancels rather than silently swallowing the
+        // click. Swallowing it made the picker a dead end: no button, and Escape
+        // only works if the surface happens to hold keyboard focus.
+        MouseArea {
+            anchors.fill: parent
+            onClicked: root.pickerTask = null
+        }
 
         DurationPicker {
             anchors.centerIn: parent

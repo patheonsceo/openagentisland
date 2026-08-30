@@ -63,14 +63,51 @@ Item {
         width: parent.width - 30
         spacing: 11
 
-        StyledText {
+        // Back out without starting anything. Escape works too, but that relies
+        // on the widget holding keyboard focus — clicking ▶ on the wrong task
+        // should never leave you stuck with no visible way out.
+        RowLayout {
             Layout.fillWidth: true
-            text: Translation.tr("How long for “%1”?").arg(root.task?.content ?? "")
-            font.pixelSize: Appearance.font.pixelSize.smaller
-            color: Appearance.colors.colSubtext
-            elide: Text.ElideRight
-            maximumLineCount: 2
-            wrapMode: Text.Wrap
+            spacing: 8
+
+            Rectangle {
+                id: backButton
+                implicitWidth: 26
+                implicitHeight: 26
+                radius: width / 2
+                color: backArea.containsMouse
+                    ? Appearance.colors.colLayer2Hover
+                    : Appearance.colors.colLayer2
+
+                Behavior on color {
+                    animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(this)
+                }
+
+                MaterialSymbol {
+                    anchors.centerIn: parent
+                    text: "arrow_back"
+                    iconSize: 16
+                    color: Appearance.colors.colOnLayer2
+                }
+
+                MouseArea {
+                    id: backArea
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.cancelled()
+                }
+            }
+
+            StyledText {
+                Layout.fillWidth: true
+                text: Translation.tr("How long for “%1”?").arg(root.task?.content ?? "")
+                font.pixelSize: Appearance.font.pixelSize.smaller
+                color: Appearance.colors.colSubtext
+                elide: Text.ElideRight
+                maximumLineCount: 2
+                wrapMode: Text.Wrap
+            }
         }
 
         RowLayout {

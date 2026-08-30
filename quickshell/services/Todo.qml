@@ -108,6 +108,7 @@ Singleton {
 
     function deleteItem(index) {
         if (index >= 0 && index < root.list.length) {
+            root.stashForUndo([root.list[index]], `Deleted “${root.list[index].content}”`);
             root.list.splice(index, 1);
             root.save();
         }
@@ -145,12 +146,37 @@ Singleton {
         return item.sessions.reduce((sum, session) => sum + (session.seconds ?? 0), 0);
     }
 
+    // Anything that removes tasks stashes them here first. Deleting work with no
+    // way back is not acceptable for a list you keep real tasks in.
+    property var undoBuffer: []
+    property string undoLabel: ""
+    readonly property bool canUndo: root.undoBuffer.length > 0
+
+    function stashForUndo(items, label) {
+        root.undoBuffer = JSON.parse(JSON.stringify(items));
+        root.undoLabel = label;
+    }
+
+    function undoLast() {
+        if (root.undoBuffer.length === 0) return;
+        // Re-insert without duplicating anything that is somehow still present.
+        const present = new Set(root.list.map(i => i.id));
+        const restored = root.undoBuffer.filter(i => !present.has(i.id));
+        root.list = root.list.concat(restored);
+        root.undoBuffer = [];
+        root.undoLabel = "";
+        root.save();
+    }
+
     function clearAll() {
+        root.stashForUndo(root.list, `${root.list.length} tasks cleared`);
         root.list = [];
         root.save();
     }
 
     function clearCompleted() {
+        root.stashForUndo(root.list.filter(item => item.done),
+            `${root.completed.length} completed cleared`);
         root.list = root.list.filter(item => !item.done);
         root.save();
     }

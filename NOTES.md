@@ -822,3 +822,27 @@ numbered list looks like work already decided on. The number and the checkbox
 share one 20px slot and cross-fade, so nothing shifts sideways when the pointer
 arrives. Completed rows keep the tick rather than falling back to a number — a
 finished task has no queue position.
+
+### 6.9 The task that vanished
+
+Right-click on a row deleted it instantly — no confirm, no undo. Inherited from
+the sidebar widget, where it was merely undiscoverable. It became a **trap** the
+moment right-click started opening the settings menu everywhere else on the card:
+reaching for the menu on a row destroyed the task instead. A real task was lost
+this way before it was caught.
+
+Three changes:
+- Rows no longer accept right-click at all. Left-click opens the settings menu,
+  matching the header, so the gesture means one thing everywhere.
+- Deleting is now an explicit ✕ that appears on hover next to ▶.
+- **Every removal is undoable.** `deleteItem`, `clearCompleted` and `clearAll`
+  stash what they removed, and the card shows a `Deleted "…" · Undo` bar until
+  the next removal. Verified by deleting a task and restoring it.
+
+The lesson generalises: when a gesture changes meaning in one place, audit
+everywhere else that gesture is bound. And anything that can destroy user data
+needs an undo before it ships, not after someone loses something.
+
+Also: the duration picker had no way out. Escape was wired but depends on the
+surface holding keyboard focus, and the backdrop swallowed clicks rather than
+cancelling. It now has a back button, and clicking off it cancels.

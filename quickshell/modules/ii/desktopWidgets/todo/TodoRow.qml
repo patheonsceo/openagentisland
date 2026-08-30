@@ -26,6 +26,7 @@ Item {
     signal toggleRequested()
     signal startRequested()
     signal deleteRequested()
+    signal menuRequested()
 
     // Height only. Width comes from Layout.fillWidth on the delegate — deriving
     // it from parent.width inside a layout is a binding loop, and the layout
@@ -36,10 +37,12 @@ Item {
         id: rowArea
         anchors.fill: parent
         hoverEnabled: true
-        acceptedButtons: Qt.LeftButton | Qt.RightButton
-        onClicked: event => {
-            if (event.button === Qt.RightButton) root.deleteRequested();
-        }
+        // Left only. Right-click used to delete instantly — no confirm, no undo —
+        // which became a trap the moment right-click started opening the settings
+        // menu everywhere else on the card. Deleting is now the explicit ✕ below,
+        // and it is undoable.
+        acceptedButtons: Qt.LeftButton
+        onClicked: root.menuRequested()
 
         Rectangle {
             anchors.fill: parent
@@ -172,6 +175,45 @@ Item {
                 font.pixelSize: Appearance.font.pixelSize.small
                 font.family: Appearance.font.family.monospace
                 color: Appearance.colors.colPrimary
+            }
+
+            // Explicit delete. Appears with the start button on hover so the row
+            // stays quiet at rest, and is backed by undo.
+            Rectangle {
+                id: deleteButton
+                Layout.alignment: Qt.AlignVCenter
+                implicitWidth: 24
+                implicitHeight: 24
+                radius: width / 2
+                color: deleteArea.containsMouse
+                    ? Appearance.m3colors.m3errorContainer
+                    : "transparent"
+                opacity: rowArea.containsMouse || deleteArea.containsMouse ? 1 : 0
+
+                Behavior on opacity {
+                    animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+                }
+                Behavior on color {
+                    animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(this)
+                }
+
+                MaterialSymbol {
+                    anchors.centerIn: parent
+                    text: "close"
+                    iconSize: 14
+                    color: deleteArea.containsMouse
+                        ? Appearance.m3colors.m3onErrorContainer
+                        : Appearance.colors.colSubtext
+                }
+
+                MouseArea {
+                    id: deleteArea
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    enabled: deleteButton.opacity > 0
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.deleteRequested()
+                }
             }
 
             Rectangle {
