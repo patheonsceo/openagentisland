@@ -5,6 +5,53 @@ lives in `NOTES.md`.
 
 ---
 
+## 2026-08-30 — Desktop widget: resize, settings menu, undo. STATE OF PLAY
+
+Everything below is committed and live. `qs -c openagentisland` is running the
+macOS-style shell: menubar + notch + dock, desktop todo widget, traffic lights.
+
+### Shipped this session
+
+- **Desktop todo widget** on its own `WlrLayer.Bottom` surface
+  (`modules/ii/desktopWidgets/`) — frosted card, per-task countdown timer with a
+  fullscreen focus screen and a draggable pill, resizable, numbered list,
+  right-click settings menu, undo for every removal.
+- **Menubar** (`modules/ii/menubar/`) replaced IslandLeft/IslandRight. Scrim
+  gradient, logo + app name + workspaces, status cluster where every item does
+  something distinct, plus a **Control Centre** panel.
+- **Dock rebuilt from scratch** (`modules/ii/macDock/`) with magnification.
+  The original dock is still present behind `dock.macStyleDock`.
+- **Traffic lights** — config only, outside this repo. See NOTES §8.
+- **Idle CPU 25.9% -> ~13%** as a side effect of retiring the two islands.
+
+### Outstanding
+
+1. **`install.sh` is written but UNCOMMITTED and untested.** ~430 lines at the
+   repo root, plus `install/traffic-lights/*.css` which ARE committed. The user
+   wants to discuss scope before it lands. It delegates the end-4 base to end-4's
+   own installer. **Its base-install path has never been run** — running it would
+   reinstall the user's desktop.
+2. **README still describes the old three-island design** and its screenshots are
+   stale. Agreed to update it alongside the installer.
+3. **This machine has no removal markers** in the matugen templates / Zen
+   userChrome, because the CSS was appended by hand before the installer existed.
+   Re-running the installer here would duplicate the block.
+4. Zen traffic lights are not leftmost (Zen's sidebar toggle still precedes
+   them). `order: -1` would fix it; left alone deliberately.
+5. Remaining idle CPU (~13%) is unexplained. The notch is ~8% of it with zero
+   visual change. Needs the QML profiler, not more guessing.
+
+### DO NOT TOUCH
+
+The working tree carries the user's own uncommitted work — acKeepAwake
+(`GlobalStates`, `Idle.qml`, `shell.qml`, quickToggles, Config) and
+regionSelector (`RegionSelection.qml`, Config, Persistent). Every commit this
+session staged ONLY its own hunks, via a python hunk filter, and verified with
+`git diff --cached | grep -cE "acKeepAwake|rememberLastRegion|Idle.load"`
+returning 0. Keep doing that.
+
+---
+
 ## 2026-08-26 (evening) — traffic lights
 
 Config only, nothing in this repo; see NOTES.md section 8. GTK + Qt button layout
