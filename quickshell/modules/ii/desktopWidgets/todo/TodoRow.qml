@@ -16,6 +16,9 @@ Item {
     id: root
 
     required property var item
+    // 1-based position in the list. -1 hides the number entirely, which is what
+    // the Completed section wants — a finished task has no queue position.
+    property int position: -1
     property bool compact: false
     readonly property bool done: root.item?.done ?? false
     readonly property bool isRunning: FocusTimer.active && FocusTimer.taskId === (root.item?.id ?? "")
@@ -55,37 +58,76 @@ Item {
             anchors.fill: parent
             spacing: 11
 
-            // Hollow circle checkbox — never pre-filled.
-            Rectangle {
-                id: checkbox
+            // Reads as a numbered list at rest; the checkbox only appears when
+            // you reach for it. A row of empty circles is a form to fill in — a
+            // numbered list is something you have already decided to do.
+            //
+            // Both occupy the same 20px slot and cross-fade, so nothing shifts
+            // sideways on hover.
+            Item {
+                id: marker
                 Layout.alignment: Qt.AlignVCenter
                 implicitWidth: 20
                 implicitHeight: 20
-                radius: width / 2
-                color: root.done ? Appearance.colors.colPrimary : "transparent"
-                border.width: 2
-                border.color: root.done
-                    ? Appearance.colors.colPrimary
-                    : (checkArea.containsMouse || rowArea.containsMouse
-                        ? Appearance.colors.colPrimary
-                        : Appearance.m3colors.m3outline)
 
-                Behavior on color {
-                    animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(this)
-                }
-                Behavior on border.color {
-                    animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(this)
-                }
+                // Once done, the tick stays put — a completed row should not
+                // fall back to showing a queue number.
+                readonly property bool showCheckbox: root.done
+                    || rowArea.containsMouse
+                    || checkArea.containsMouse
+                    || root.position < 0
 
-                MaterialSymbol {
+                StyledText {
                     anchors.centerIn: parent
-                    text: "check"
-                    iconSize: 14
-                    fill: 1
-                    color: Appearance.colors.colOnPrimary
-                    opacity: root.done ? 1 : 0
+                    text: `${root.position}`
+                    visible: opacity > 0
+                    opacity: marker.showCheckbox ? 0 : 1
+                    font.pixelSize: Appearance.font.pixelSize.smaller
+                    font.family: Appearance.font.family.monospace
+                    color: Appearance.colors.colSubtext
                     Behavior on opacity {
                         animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+                    }
+                }
+
+                Rectangle {
+                    id: checkbox
+                    anchors.fill: parent
+                    radius: width / 2
+                    visible: opacity > 0
+                    opacity: marker.showCheckbox ? 1 : 0
+                    scale: marker.showCheckbox ? 1 : 0.7
+                    color: root.done ? Appearance.colors.colPrimary : "transparent"
+                    border.width: 2
+                    border.color: root.done
+                        ? Appearance.colors.colPrimary
+                        : (checkArea.containsMouse
+                            ? Appearance.colors.colPrimary
+                            : Appearance.m3colors.m3outline)
+
+                    Behavior on color {
+                        animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(this)
+                    }
+                    Behavior on border.color {
+                        animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(this)
+                    }
+                    Behavior on opacity {
+                        animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+                    }
+                    Behavior on scale {
+                        animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+                    }
+
+                    MaterialSymbol {
+                        anchors.centerIn: parent
+                        text: "check"
+                        iconSize: 14
+                        fill: 1
+                        color: Appearance.colors.colOnPrimary
+                        opacity: root.done ? 1 : 0
+                        Behavior on opacity {
+                            animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+                        }
                     }
                 }
 

@@ -779,6 +779,14 @@ sits inside the padding and never steals clicks from a row's ▶ button.
 
 ### 6.7 Settings menu, empty state, and a crash worth remembering
 
+**z-order only sorts among SIBLINGS.** The first version put the click-away
+catcher as a sibling of the card at `z: 90` and the menu as a *child* of the
+card. A child cannot rise above its parent's sibling whatever its own z says, so
+the catcher swallowed every click and not one menu item ever fired. Both are now
+reparented to the surface. Related: the window's `mask` limited input to the
+card, so anything the menu drew outside those bounds was dead too — the mask
+opens up to the whole surface while the menu is showing.
+
 Right-click the header strip for settings: material (translucent/solid + an
 opacity slider), show/hide completed, clear completed, clear all, reset size,
 reset position, hide widget. Destructive rows **arm on the first click and fire
@@ -805,3 +813,12 @@ are fine — the failure is a list default that has never been written.
 Two things this cost that are worth internalising: the crash only appears on the
 *second* launch, so a single restart looks like success; and disabling the widget
 did not stop it, because the fault is in reading the config, not in rendering.
+
+### 6.8 Numbered list
+
+Tasks read as a numbered list at rest and swap the number for the checkbox on
+hover. A column of empty circles looks like a form waiting to be filled in; a
+numbered list looks like work already decided on. The number and the checkbox
+share one 20px slot and cross-fade, so nothing shifts sideways when the pointer
+arrives. Completed rows keep the tick rather than falling back to a number — a
+finished task has no queue position.

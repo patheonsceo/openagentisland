@@ -242,8 +242,10 @@ Item {
                             model: root.unfinished
                             delegate: TodoRow {
                                 required property var modelData
+                                required property int index
                                 Layout.fillWidth: true
                                 item: modelData
+                                position: index + 1
                                 onToggleRequested: Todo.toggleDoneById(modelData.id)
                                 onDeleteRequested: Todo.deleteById(modelData.id)
                                 onStartRequested: root.startTask(modelData)
@@ -385,8 +387,10 @@ Item {
         ResizeGrip { edge: "corner" }
 
     // ── Settings menu ─────────────────────────────────────────────
-    // Click-away catcher, only alive while the menu is. Sized to the whole
-    // surface so a click anywhere outside dismisses it.
+    // Catcher AND menu are both reparented to the surface, because z-order only
+    // sorts among siblings. Leaving the menu as a child of the card put it below
+    // the catcher no matter how high its own z was, so the catcher ate every
+    // click and none of the menu items ever fired.
     MouseArea {
         parent: root.parent
         anchors.fill: parent
@@ -398,14 +402,16 @@ Item {
 
     TodoMenu {
         id: settingsMenu
+        parent: root.parent
         open: root.menuOpen
         z: 100
-        // Kept inside the card's surface: flip to the other side when the menu
-        // would run off the bottom or right of the screen.
-        x: Math.min(root.menuPos.x, root.screenWidth - root.x - width - 8)
-        y: root.menuPos.y + height + root.y > root.screenHeight
-            ? root.menuPos.y - height
-            : root.menuPos.y
+        // Now in surface coordinates, so the card's own position has to be added.
+        // Flips to the other side of the cursor when it would run off an edge.
+        x: Math.max(8, Math.min(root.x + root.menuPos.x,
+                                root.screenWidth - width - 8))
+        y: (root.y + root.menuPos.y + height > root.screenHeight)
+            ? Math.max(8, root.y + root.menuPos.y - height)
+            : root.y + root.menuPos.y
         onRequestClose: root.menuOpen = false
     }
 

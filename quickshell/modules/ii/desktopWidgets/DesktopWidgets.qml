@@ -65,8 +65,12 @@ Scope {
                 right: true
             }
 
-            // Everything outside the card stays clickable through to the desktop.
-            mask: Region { item: todoCard }
+            // Everything outside the card stays clickable through to the desktop —
+            // EXCEPT while the settings menu is open, when the whole surface has to
+            // accept input or the menu (which extends past the card) gets no clicks
+            // at all and the click-away catcher never fires.
+            mask: todoCard.menuOpen ? null : cardOnlyRegion
+            Region { id: cardOnlyRegion; item: todoCard }
 
             function restorePosition() {
                 if (!Config.ready) return;
