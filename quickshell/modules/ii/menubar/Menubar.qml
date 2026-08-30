@@ -77,6 +77,7 @@ Scope {
             // Dropdown state. Only one of these is ever open at a time.
             property bool calendarOpen: false
             property bool controlCentreOpen: false
+            property bool systemMenuOpen: false
 
             readonly property bool focusedHere:
                 (Hyprland.focusedMonitor?.name ?? "") === (barWindow.screen.name ?? "")
@@ -120,8 +121,28 @@ Scope {
                 spacing: 15
 
                 MenuItem {
+                    id: systemMenuItem
                     symbol: Config.options.bar.topLeftIcon === "spark" ? "auto_awesome" : "linux"
-                    onTriggered: GlobalStates.sidebarLeftOpen = !GlobalStates.sidebarLeftOpen
+                    active: barWindow.systemMenuOpen
+                    onTriggered: {
+                        barWindow.systemMenuOpen = !barWindow.systemMenuOpen;
+                        barWindow.controlCentreOpen = false;
+                        barWindow.calendarOpen = false;
+                    }
+                    // The sidebar this used to toggle is now a row in the menu.
+                    onSecondary: GlobalStates.sidebarLeftOpen = !GlobalStates.sidebarLeftOpen
+
+                    IslandPopup {
+                        anchorItem: systemMenuItem
+                        shouldShow: barWindow.systemMenuOpen
+                        interactive: true
+                        contentComponent: Component {
+                            SystemMenu {
+                                open: barWindow.systemMenuOpen
+                                onRequestClose: barWindow.systemMenuOpen = false
+                            }
+                        }
+                    }
                 }
 
                 StyledText {
@@ -220,6 +241,7 @@ Scope {
                     onTriggered: {
                         barWindow.controlCentreOpen = !barWindow.controlCentreOpen;
                         barWindow.calendarOpen = false;
+                        barWindow.systemMenuOpen = false;
                     }
                     onSecondary: Quickshell.execDetached(["bash", "-c", Config.options.apps.taskManager])
 
