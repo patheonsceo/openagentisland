@@ -348,7 +348,7 @@ Singleton {
                 // dropdown, and a highlight cannot sit consistently on a
                 // gradient that is 74% opaque at the top and 0% at the bottom.
                 property string menubarMaterial: "bar"   // bar | scrim
-                property real menubarOpacity: 0.55
+                property real menubarOpacity: 0.72
                 property string topLeftIcon: "spark" // Options: "distro" or any icon name in ~/.config/quickshell/ii/assets/icons
                 property bool showBackground: true
                 property bool verbose: true

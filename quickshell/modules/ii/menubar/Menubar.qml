@@ -80,6 +80,7 @@ Scope {
             property bool calendarOpen: false
             property bool controlCentreOpen: false
             property bool systemMenuOpen: false
+            property bool appMenuOpen: false
 
             readonly property bool focusedHere:
                 (Hyprland.focusedMonitor?.name ?? "") === (barWindow.screen.name ?? "")
@@ -156,6 +157,7 @@ Scope {
                         barWindow.systemMenuOpen = !barWindow.systemMenuOpen;
                         barWindow.controlCentreOpen = false;
                         barWindow.calendarOpen = false;
+                        barWindow.appMenuOpen = false;
                     }
                     // The sidebar this used to toggle is now a row in the menu.
                     onSecondary: GlobalStates.sidebarLeftOpen = !GlobalStates.sidebarLeftOpen
@@ -173,15 +175,61 @@ Scope {
                     }
                 }
 
-                StyledText {
+                Item {
+                    id: appMenuItem
                     Layout.alignment: Qt.AlignVCenter
-                    Layout.maximumWidth: 260
-                    text: barWindow.appName
-                    font.pixelSize: Appearance.font.pixelSize.smaller
-                    font.weight: Font.Bold
-                    color: Appearance.colors.colOnLayer0
-                    elide: Text.ElideRight
-                    maximumLineCount: 1
+                    implicitWidth: Math.min(260, appNameText.implicitWidth + 16)
+                    implicitHeight: root.barHeight - 6
+
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: Appearance.rounding.verysmall
+                        color: barWindow.appMenuOpen ? Appearance.colors.colPrimary
+                            : appNameArea.containsMouse ? Appearance.colors.colLayer1Hover
+                            : "transparent"
+                        Behavior on color {
+                            animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(this)
+                        }
+                    }
+
+                    StyledText {
+                        id: appNameText
+                        anchors.centerIn: parent
+                        width: Math.min(244, implicitWidth)
+                        text: barWindow.appName
+                        font.pixelSize: Appearance.font.pixelSize.smaller
+                        font.weight: Font.Bold
+                        color: barWindow.appMenuOpen ? Appearance.colors.colOnPrimary
+                            : Appearance.colors.colOnLayer0
+                        elide: Text.ElideRight
+                        maximumLineCount: 1
+                    }
+
+                    MouseArea {
+                        id: appNameArea
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            barWindow.appMenuOpen = !barWindow.appMenuOpen;
+                            barWindow.systemMenuOpen = false;
+                            barWindow.controlCentreOpen = false;
+                            barWindow.calendarOpen = false;
+                        }
+                    }
+
+                    IslandPopup {
+                        anchorItem: appMenuItem
+                        shouldShow: barWindow.appMenuOpen
+                        interactive: true
+                        contentComponent: Component {
+                            AppMenu {
+                                open: barWindow.appMenuOpen
+                                appName: barWindow.appName
+                                onRequestClose: barWindow.appMenuOpen = false
+                            }
+                        }
+                    }
                 }
 
                 IslandWorkspaces {
@@ -270,6 +318,7 @@ Scope {
                         barWindow.controlCentreOpen = !barWindow.controlCentreOpen;
                         barWindow.calendarOpen = false;
                         barWindow.systemMenuOpen = false;
+                        barWindow.appMenuOpen = false;
                     }
                     onSecondary: Quickshell.execDetached(["bash", "-c", Config.options.apps.taskManager])
 
