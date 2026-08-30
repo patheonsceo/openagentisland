@@ -163,6 +163,19 @@ Singleton {
 
             property JsonObject background: JsonObject {
                 property JsonObject widgets: JsonObject {
+                    // Which monitor the widget board lives on. Empty means the
+                    // first screen; one board on three monitors would just be
+                    // three copies of itself.
+                    property string screenName: ""
+                    // "free"  — lands exactly where you drop it
+                    // "snap"  — magnets to screen margins, centres and the edges
+                    //           of other widgets, with a guide line while dragging
+                    // "grid"  — position AND size quantise to gridSize
+                    property string placementMode: "snap"
+                    property int snapThreshold: 12
+                    property int gridSize: 60
+                    property int screenMargin: 24
+
                     property JsonObject clock: JsonObject {
                         property bool enable: true
                         property bool showOnlyWhenLocked: false
@@ -248,6 +261,51 @@ Singleton {
                         // "Configuration Loaded". Strings round-trip reliably.
                         property string durationPresets: "15,25,50"
                         property int defaultDuration: 25
+                        // Generic vertical size driven by the resize grip. Falls
+                        // back to listHeight, which is what this used to be
+                        // called, so an existing config keeps its size.
+                        property real contentHeight: 0
+                    }
+
+                    // The desktop clock card. Distinct from `clock` above, which
+                    // is the big wallpaper clock drawn by Background.qml.
+                    property JsonObject clockCard: JsonObject {
+                        property bool enable: false
+                        property real x: 24
+                        property real y: 24
+                        property real width: 300
+                        property real contentHeight: 0
+                        // Zones offered, as a comma-separated STRING of IANA
+                        // names. A list-typed property in a JsonObject
+                        // serialises back out as `null`, and reading that null
+                        // on the next launch hard-crashes the whole shell — no
+                        // QML error, just a dead process a second after
+                        // "Configuration Loaded".
+                        property string timezones: "local"
+                        // Which of the above is currently on the face.
+                        property string activeTimezone: "local"
+                        property bool twelveHour: true
+                        property bool showSeconds: false
+                        property bool showDate: true
+                        property real tintOpacity: 0.10
+                        property real baseOpacity: 0.42
+                        property bool solidMaterial: false
+                        property int blurRadius: 64
+                    }
+
+                    property JsonObject calendar: JsonObject {
+                        property bool enable: false
+                        property real x: 24
+                        property real y: 320
+                        property real width: 340
+                        property real contentHeight: 0
+                        // 0 = Sunday, 1 = Monday.
+                        property int firstDayOfWeek: 1
+                        property bool showWeekNumbers: false
+                        property real tintOpacity: 0.10
+                        property real baseOpacity: 0.42
+                        property bool solidMaterial: false
+                        property int blurRadius: 64
                     }
                 }
                 property string wallpaperPath: ""
@@ -330,6 +388,8 @@ Singleton {
                 property int full: 101
                 property bool automaticSuspend: true
                 property int suspend: 3
+                // Never idle (no lock, no screen off, no suspend) while running on AC power
+                property bool keepAwakeWhenPluggedIn: true
             }
 
             property JsonObject calendar: JsonObject {

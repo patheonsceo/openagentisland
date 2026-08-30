@@ -1,7 +1,9 @@
+pragma ComponentBehavior: Bound
+
 import qs.modules.common
 import qs.modules.common.widgets
-import qs.modules.common.functions
 import qs.services
+import qs.modules.ii.desktopWidgets
 import QtQuick
 import QtQuick.Layouts
 
@@ -13,544 +15,389 @@ import QtQuick.Layouts
  * corner radii — rendered entirely from Appearance tokens so it retints with
  * the wallpaper instead of pinning a palette.
  *
- * The frost is drawn in QML rather than by the compositor — see
- * FrostedBackdrop for why that turned out to be necessary here.
+ * Everything that is not the face — frost, dragging, resizing, snapping,
+ * position persistence, menu placement — comes from DesktopWidget.
  */
-Item {
+DesktopWidget {
     id: root
 
-    readonly property var config: Config.options.background.widgets.todo
+    widgetId: "todo"
+    config: Config.options.background.widgets.todo
+
+    minWidth: root.config.minWidth
+    maxWidth: root.config.maxWidth
+    maxVertical: 900
+
+    // The board keeps asking for keys while a field holds focus.
+    inputActive: addField.activeFocus || root.pickerTask !== null
+
     readonly property var unfinished: Todo.unfinished
     readonly property var completed: Todo.completed
-    readonly property real padding: 16
-    readonly property real cardRadius: 22
-
-    // The host window raises keyboard focus only while we actually need typing.
-    readonly property bool inputActive: addField.activeFocus || root.pickerTask !== null
-
-    // Raised when the user backs out of typing, so the host can hand the
-    // keyboard back to whatever app was using it.
-    signal dismissed()
-
-    // True for the whole of a drag or resize gesture. The host drops its input
-    // mask while this holds — a gesture that leaves the card's own bounds must
-    // keep receiving motion, and the resize grips sit right on the edge.
-    property bool dragging: false
-    property bool resizing: false
-    readonly property bool interacting: root.dragging || root.resizing
-
-    // Needed to lay the frost's wallpaper copy out exactly as the real one.
-    property int screenWidth: 1920
-    property int screenHeight: 1080
-
-    property bool menuOpen: false
-    property point menuPos: Qt.point(0, 0)
 
     property var pickerTask: null
     property bool completedExpanded: false
 
-    // Size is driven bottom-up from the content, once: content column sizes
-    // itself from its children, the card takes that plus padding. Anchoring the
-    // column to fill the card instead would put height on both sides of the same
-    // binding and QML would resolve it to zero.
-    // While a resize gesture is live the geometry comes from these, not from
-    // config. Writing config on every motion event pushed the entire options
-    // object through JsonAdapter serialisation and restarted the debounced file
-    // write dozens of times a second — which is what made resizing feel like it
-    // was fighting back. Config is written once, on release.
-    property real pendingWidth: -1
-    property real pendingListHeight: -1
-
-    implicitWidth: root.pendingWidth >= 0 ? root.pendingWidth : root.config.width
-    implicitHeight: contentColumn.implicitHeight + root.padding * 2
-
-    // Single place where a finished gesture becomes a stored position. Grid
-    // snapping belongs here when it lands, and nowhere else.
-    function commitPosition(x, y) {
-        root.config.x = Math.round(Math.max(0, Math.min(x, root.screenWidth - root.width)));
-        root.config.y = Math.round(Math.max(0, Math.min(y, root.screenHeight - root.height)));
-    }
-
     // Resizing vertically changes the height of the SCROLLABLE task area, not
     // the whole card. The header, Completed section and add-row keep their
-    // natural size, so the card grows exactly by what you dragged and never
-    // fights the content-driven height binding above (which is what collapsed
-    // it to zero the first time round).
+    // natural size, so the card grows by exactly what you dragged and never
+    // fights the content-driven height binding (which is what collapsed it to
+    // zero the first time round).
+    //
     // An empty list has no rows, so fall back to a sensible block for the
     // centred empty state rather than collapsing the area to nothing.
     readonly property real naturalListHeight: root.unfinished.length > 0
         ? taskColumn.implicitHeight
         : 130
-    readonly property bool listIsClamped: root.pendingListHeight >= 0 || root.config.listHeight > 0
-    readonly property real effectiveListHeight: root.pendingListHeight >= 0
-        ? root.pendingListHeight
-        : (root.config.listHeight > 0
-            ? Math.max(40, root.config.listHeight)
-            : root.naturalListHeight)
+    // `contentHeight` is the container's generic vertical size; `listHeight` is
+    // what this used to be called, kept as a fallback so an existing config
+    // keeps the size the user already chose.
+    readonly property real storedListHeight: root.verticalSize > 0
+        ? root.verticalSize
+        : (root.config.listHeight ?? 0)
+    readonly property real effectiveListHeight: root.storedListHeight > 0
+        ? Math.max(40, root.storedListHeight)
+        : root.naturalListHeight
 
     function startTask(task) {
         root.pickerTask = task;
     }
 
+    menuComponent: Component { TodoMenu {} }
 
-    // Frosted glass, drawn in QML. See FrostedBackdrop for why not the compositor.
-    FrostedBackdrop {
-        anchors.fill: parent
-        radius: root.cardRadius
-        surfaceX: root.x
-        surfaceY: root.y
-        screenWidth: root.screenWidth
-        screenHeight: root.screenHeight
-        tintOpacity: root.config.tintOpacity
-        baseOpacity: root.config.baseOpacity
-        blurMax: root.config.blurRadius
-        solid: root.config.solidMaterial
-    }
+    // ── Face ──────────────────────────────────────────────────────
+    ColumnLayout {
+        id: contentColumn
+        // Width from the container's content slot; height is this layout's own
+        // implicitHeight, which the card sizes itself from. Never anchor this
+        // to a bottom edge.
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        spacing: 0
 
-    Rectangle {
-        id: cardBackground
-        anchors.fill: parent
-        radius: root.cardRadius
-        color: "transparent"
-        border.width: 1
-        border.color: Appearance.colors.colLayer0Border
+        // ── Header ────────────────────────────────────────────────
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 10
 
-        // Dragging happens from the header strip, like a titlebar. Rows own their
-        // own mouse areas, so making the whole card draggable would fight with
-        // checkbox and start clicks. Sits behind the content, not inside the
-        // layout — anchors on a layout-managed item are undefined behaviour.
-        // Right-click opens the settings menu. Declared first so it sits BEHIND
-        // the dragger and accepts only the right button; left presses are not
-        // accepted here and fall straight through to the dragger above, so
-        // neither area has to know the other exists.
-        MouseArea {
-            anchors.fill: dragArea
-            acceptedButtons: Qt.RightButton
-            onPressed: mouse => {
-                root.menuPos = Qt.point(mouse.x, mouse.y);
-                root.menuOpen = true;
-            }
-        }
-
-        MouseArea {
-            id: dragArea
-            anchors.top: parent.top
-            anchors.left: parent.left
-            anchors.right: parent.right
-            height: 56
-            acceptedButtons: Qt.LeftButton
-            cursorShape: drag.active ? Qt.ClosedHandCursor : Qt.OpenHandCursor
-
-            // `drag.target` used to be bound to `pressedButtons`, which is only
-            // set at the END of press handling — so the target was still null
-            // while the press was being processed.
-            drag.target: root
-            drag.axis: Drag.XAndYAxis
-
-            // The two lines that actually fix "drag it fast and it drops behind".
-            // Qt defaults `smoothed` to true, which moves the target only once
-            // the threshold is crossed and then keeps it offset by however far
-            // the pointer travelled in that first motion event. Move slowly and
-            // that is a few pixels; flick it and the card trails the cursor by
-            // that gap for the rest of the gesture. Straight tracking instead.
-            drag.threshold: 0
-            drag.smoothed: false
-
-            // Bound during the drag rather than clamped after it, so the card
-            // slides along the screen edge instead of being yanked back on
-            // release.
-            drag.minimumX: 0
-            drag.maximumX: Math.max(0, root.screenWidth - root.width)
-            drag.minimumY: 0
-            drag.maximumY: Math.max(0, root.screenHeight - root.height)
-
-            onPressed: root.dragging = true
-            onReleased: dragArea.finish()
-            onCanceled: dragArea.finish()
-
-            function finish() {
-                if (!root.dragging) return;
-                root.dragging = false;
-                root.commitPosition(root.x, root.y);
-            }
-        }
-
-        ColumnLayout {
-            id: contentColumn
-            // Left/right/top only. No bottom anchor, so height stays the layout's
-            // own implicitHeight and the card can size itself from it.
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.top: parent.top
-            anchors.margins: root.padding
-            spacing: 0
-
-            // ── Header ────────────────────────────────────────────
-            RowLayout {
+            ColumnLayout {
                 Layout.fillWidth: true
-                spacing: 10
+                spacing: 0
 
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    spacing: 0
-
-                    StyledText {
-                        text: `${root.unfinished.length}`
-                        font.pixelSize: 30
-                        font.weight: Font.DemiBold
-                        color: Appearance.colors.colOnLayer0
-                    }
-                    StyledText {
-                        Layout.fillWidth: true
-                        text: root.config.listName
-                        font.pixelSize: Appearance.font.pixelSize.small
-                        font.weight: Font.DemiBold
-                        color: Appearance.colors.colPrimary
-                        elide: Text.ElideRight
-                        maximumLineCount: 1
-                    }
+                StyledText {
+                    text: `${root.unfinished.length}`
+                    font.pixelSize: 30
+                    font.weight: Font.DemiBold
+                    color: Appearance.colors.colOnLayer0
                 }
-
-                Rectangle {
-                    Layout.alignment: Qt.AlignTop
-                    implicitWidth: 30
-                    implicitHeight: 30
-                    radius: width / 2
+                StyledText {
+                    Layout.fillWidth: true
+                    text: root.config.listName
+                    font.pixelSize: Appearance.font.pixelSize.small
+                    font.weight: Font.DemiBold
                     color: Appearance.colors.colPrimary
-
-                    MaterialSymbol {
-                        anchors.centerIn: parent
-                        text: "checklist"
-                        iconSize: 17
-                        color: Appearance.colors.colOnPrimary
-                    }
+                    elide: Text.ElideRight
+                    maximumLineCount: 1
                 }
             }
 
             Rectangle {
-                Layout.fillWidth: true
-                Layout.topMargin: 13
-                Layout.bottomMargin: 5
-                implicitHeight: 1
-                color: Appearance.m3colors.m3outlineVariant
+                Layout.alignment: Qt.AlignTop
+                implicitWidth: 30
+                implicitHeight: 30
+                radius: width / 2
+                color: Appearance.colors.colPrimary
+
+                MaterialSymbol {
+                    anchors.centerIn: parent
+                    text: "checklist"
+                    iconSize: 17
+                    color: Appearance.colors.colOnPrimary
+                }
+            }
+        }
+
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.topMargin: 13
+            Layout.bottomMargin: 5
+            implicitHeight: 1
+            color: Appearance.m3colors.m3outlineVariant
+        }
+
+        // ── Unfinished ────────────────────────────────────────────
+        // One area that holds either the rows or the empty state. The empty
+        // state lives INSIDE it and centres, because sitting it after the list
+        // in the column parked it at the bottom of a tall card with a wall of
+        // dead space above.
+        Item {
+            id: listArea
+            Layout.fillWidth: true
+            implicitHeight: root.effectiveListHeight
+
+            ColumnLayout {
+                anchors.centerIn: parent
+                width: parent.width
+                spacing: 10
+                visible: root.unfinished.length === 0
+
+                MaterialSymbol {
+                    Layout.alignment: Qt.AlignHCenter
+                    text: root.completed.length > 0 ? "task_alt" : "checklist"
+                    iconSize: 34
+                    fill: root.completed.length > 0 ? 1 : 0
+                    color: Appearance.colors.colPrimary
+                    opacity: 0.55
+                }
+                StyledText {
+                    Layout.alignment: Qt.AlignHCenter
+                    Layout.fillWidth: true
+                    horizontalAlignment: Text.AlignHCenter
+                    text: root.completed.length > 0
+                        ? Translation.tr("All done")
+                        : Translation.tr("Nothing here yet")
+                    font.pixelSize: Appearance.font.pixelSize.small
+                    font.weight: Font.DemiBold
+                    color: Appearance.colors.colOnLayer1
+                }
+                StyledText {
+                    Layout.alignment: Qt.AlignHCenter
+                    Layout.fillWidth: true
+                    horizontalAlignment: Text.AlignHCenter
+                    text: root.completed.length > 0
+                        ? Translation.tr("%1 finished today").arg(root.completed.length)
+                        : Translation.tr("Add one below to get started")
+                    font.pixelSize: Appearance.font.pixelSize.smaller
+                    color: Appearance.colors.colSubtext
+                    wrapMode: Text.Wrap
+                }
             }
 
-            // ── Unfinished ────────────────────────────────────────
-            // One area that either holds the rows or the empty state. The empty
-            // state lives INSIDE it and centres, because sitting it after the
-            // list in the column parked it at the bottom of a tall card with a
-            // wall of dead space above.
-            Item {
-                id: listArea
-                Layout.fillWidth: true
-                implicitHeight: root.effectiveListHeight
+            Flickable {
+                anchors.fill: parent
+                visible: root.unfinished.length > 0
+                contentHeight: taskColumn.implicitHeight
+                clip: true
+                interactive: contentHeight > height
+                boundsBehavior: Flickable.StopAtBounds
+                flickDeceleration: 6000
 
-                // ── Empty state ───────────────────────────────
                 ColumnLayout {
-                    anchors.centerIn: parent
+                    id: taskColumn
                     width: parent.width
-                    spacing: 10
-                    visible: root.unfinished.length === 0
+                    spacing: 0
 
-                    MaterialSymbol {
-                        Layout.alignment: Qt.AlignHCenter
-                        text: root.completed.length > 0 ? "task_alt" : "checklist"
-                        iconSize: 34
-                        fill: root.completed.length > 0 ? 1 : 0
-                        color: Appearance.colors.colPrimary
-                        opacity: 0.55
-                    }
-                    StyledText {
-                        Layout.alignment: Qt.AlignHCenter
-                        Layout.fillWidth: true
-                        horizontalAlignment: Text.AlignHCenter
-                        text: root.completed.length > 0
-                            ? Translation.tr("All done")
-                            : Translation.tr("Nothing here yet")
-                        font.pixelSize: Appearance.font.pixelSize.small
-                        font.weight: Font.DemiBold
-                        color: Appearance.colors.colOnLayer1
-                    }
-                    StyledText {
-                        Layout.alignment: Qt.AlignHCenter
-                        Layout.fillWidth: true
-                        horizontalAlignment: Text.AlignHCenter
-                        text: root.completed.length > 0
-                            ? Translation.tr("%1 finished today").arg(root.completed.length)
-                            : Translation.tr("Add one below to get started")
-                        font.pixelSize: Appearance.font.pixelSize.smaller
-                        color: Appearance.colors.colSubtext
-                        wrapMode: Text.Wrap
-                    }
-                }
-
-                Flickable {
-                    anchors.fill: parent
-                    visible: root.unfinished.length > 0
-                    contentHeight: taskColumn.implicitHeight
-                    clip: true
-                    interactive: contentHeight > height
-                    boundsBehavior: Flickable.StopAtBounds
-                    flickDeceleration: 6000
-
-                    ColumnLayout {
-                        id: taskColumn
-                        width: parent.width
-                        spacing: 0
-
-                        Repeater {
-                            model: root.unfinished
-                            delegate: TodoRow {
-                                required property var modelData
-                                required property int index
-                                Layout.fillWidth: true
-                                item: modelData
-                                position: index + 1
-                                onToggleRequested: Todo.toggleDoneById(modelData.id)
-                                onDeleteRequested: Todo.deleteById(modelData.id)
-                                onStartRequested: root.startTask(modelData)
-                                onMenuRequested: {
-                                    root.menuPos = Qt.point(root.width / 2, 60);
-                                    root.menuOpen = true;
-                                }
+                    Repeater {
+                        model: root.unfinished
+                        delegate: TodoRow {
+                            required property var modelData
+                            required property int index
+                            Layout.fillWidth: true
+                            item: modelData
+                            position: index + 1
+                            onToggleRequested: Todo.toggleDoneById(modelData.id)
+                            onDeleteRequested: Todo.deleteById(modelData.id)
+                            onStartRequested: root.startTask(modelData)
+                            onMenuRequested: {
+                                root.menuPos = Qt.point(root.width / 2, 60);
+                                root.menuOpen = true;
                             }
                         }
                     }
                 }
-
-                // Fades the cut-off row so a clipped list reads as scrollable
-                // rather than as a rendering glitch.
-                Rectangle {
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.bottom: parent.bottom
-                    height: 18
-                    visible: root.unfinished.length > 0
-                        && taskColumn.implicitHeight > listArea.height
-                    gradient: Gradient {
-                        GradientStop { position: 0.0; color: "transparent" }
-                        GradientStop {
-                            position: 1.0
-                            color: Qt.rgba(Appearance.colors.colLayer0.r,
-                                           Appearance.colors.colLayer0.g,
-                                           Appearance.colors.colLayer0.b, 0.55)
-                        }
-                    }
-                }
             }
 
-            // ── Completed ─────────────────────────────────────────
-            MouseArea {
-                Layout.fillWidth: true
-                implicitHeight: 30
-                visible: root.config.showCompleted && root.completed.length > 0
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: root.completedExpanded = !root.completedExpanded
-
-                RowLayout {
-                    anchors.fill: parent
-                    spacing: 6
-
-                    StyledText {
-                        text: Translation.tr("Completed")
-                        font.pixelSize: Appearance.font.pixelSize.smaller
-                        color: Appearance.colors.colSubtext
-                    }
-                    Item { Layout.fillWidth: true }
-                    StyledText {
-                        text: `${root.completed.length}`
-                        font.pixelSize: Appearance.font.pixelSize.smaller
-                        color: Appearance.colors.colSubtext
-                    }
-                    MaterialSymbol {
-                        text: root.completedExpanded ? "expand_less" : "expand_more"
-                        iconSize: 18
-                        color: Appearance.colors.colSubtext
-                    }
-                }
-            }
-
-            Repeater {
-                model: root.completedExpanded ? root.completed : []
-                delegate: TodoRow {
-                    required property var modelData
-                    Layout.fillWidth: true
-                    item: modelData
-                    onToggleRequested: Todo.toggleDoneById(modelData.id)
-                    onDeleteRequested: Todo.deleteById(modelData.id)
-                }
-            }
-
-            // ── Undo ──────────────────────────────────────────────
-            // Any removal is recoverable for a while. A task list that can lose
-            // work to one click is not one you can trust with real work.
+            // Fades the cut-off row so a clipped list reads as scrollable
+            // rather than as a rendering glitch.
             Rectangle {
-                Layout.fillWidth: true
-                Layout.topMargin: Todo.canUndo ? 6 : 0
-                implicitHeight: Todo.canUndo ? 34 : 0
-                visible: implicitHeight > 0
-                clip: true
-                radius: Appearance.rounding.small
-                color: Appearance.colors.colLayer2
-
-                Behavior on implicitHeight {
-                    animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
-                }
-
-                RowLayout {
-                    anchors.fill: parent
-                    anchors.leftMargin: 10
-                    anchors.rightMargin: 6
-                    spacing: 8
-
-                    MaterialSymbol {
-                        text: "history"
-                        iconSize: 15
-                        color: Appearance.colors.colSubtext
-                    }
-                    StyledText {
-                        Layout.fillWidth: true
-                        text: Todo.undoLabel
-                        font.pixelSize: Appearance.font.pixelSize.smallest
-                        color: Appearance.colors.colOnLayer2
-                        elide: Text.ElideRight
-                    }
-                    Rectangle {
-                        implicitWidth: undoText.implicitWidth + 18
-                        implicitHeight: 24
-                        radius: Appearance.rounding.verysmall
-                        color: undoArea.containsMouse
-                            ? Appearance.colors.colPrimary
-                            : Appearance.colors.colPrimaryContainer
-
-                        Behavior on color {
-                            animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(this)
-                        }
-
-                        StyledText {
-                            id: undoText
-                            anchors.centerIn: parent
-                            text: Translation.tr("Undo")
-                            font.pixelSize: Appearance.font.pixelSize.smallest
-                            font.weight: Font.DemiBold
-                            color: undoArea.containsMouse
-                                ? Appearance.colors.colOnPrimary
-                                : Appearance.colors.colOnPrimaryContainer
-                        }
-
-                        MouseArea {
-                            id: undoArea
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: Todo.undoLast()
-                        }
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.bottom: parent.bottom
+                height: 18
+                visible: root.unfinished.length > 0
+                    && taskColumn.implicitHeight > listArea.height
+                gradient: Gradient {
+                    GradientStop { position: 0.0; color: "transparent" }
+                    GradientStop {
+                        position: 1.0
+                        color: Qt.rgba(Appearance.colors.colLayer0.r,
+                                       Appearance.colors.colLayer0.g,
+                                       Appearance.colors.colLayer0.b, 0.55)
                     }
                 }
             }
+        }
 
-            // ── Add a task ────────────────────────────────────────
+        // ── Completed ─────────────────────────────────────────────
+        MouseArea {
+            Layout.fillWidth: true
+            implicitHeight: 30
+            visible: root.config.showCompleted && root.completed.length > 0
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.completedExpanded = !root.completedExpanded
+
             RowLayout {
-                Layout.fillWidth: true
-                Layout.topMargin: 4
-                implicitHeight: 38
-                spacing: 11
+                anchors.fill: parent
+                spacing: 6
 
+                StyledText {
+                    text: Translation.tr("Completed")
+                    font.pixelSize: Appearance.font.pixelSize.smaller
+                    color: Appearance.colors.colSubtext
+                }
+                Item { Layout.fillWidth: true }
+                StyledText {
+                    text: `${root.completed.length}`
+                    font.pixelSize: Appearance.font.pixelSize.smaller
+                    color: Appearance.colors.colSubtext
+                }
+                MaterialSymbol {
+                    text: root.completedExpanded ? "expand_less" : "expand_more"
+                    iconSize: 18
+                    color: Appearance.colors.colSubtext
+                }
+            }
+        }
+
+        Repeater {
+            model: root.completedExpanded ? root.completed : []
+            delegate: TodoRow {
+                required property var modelData
+                Layout.fillWidth: true
+                item: modelData
+                onToggleRequested: Todo.toggleDoneById(modelData.id)
+                onDeleteRequested: Todo.deleteById(modelData.id)
+            }
+        }
+
+        // ── Undo ──────────────────────────────────────────────────
+        // Any removal is recoverable for a while. A task list that can lose
+        // work to one click is not one you can trust with real work.
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.topMargin: Todo.canUndo ? 6 : 0
+            implicitHeight: Todo.canUndo ? 34 : 0
+            visible: implicitHeight > 0
+            clip: true
+            radius: Appearance.rounding.small
+            color: Appearance.colors.colLayer2
+
+            Behavior on implicitHeight {
+                animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+            }
+
+            RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: 10
+                anchors.rightMargin: 6
+                spacing: 8
+
+                MaterialSymbol {
+                    text: "history"
+                    iconSize: 15
+                    color: Appearance.colors.colSubtext
+                }
+                StyledText {
+                    Layout.fillWidth: true
+                    text: Todo.undoLabel
+                    font.pixelSize: Appearance.font.pixelSize.smallest
+                    color: Appearance.colors.colOnLayer2
+                    elide: Text.ElideRight
+                }
                 Rectangle {
-                    implicitWidth: 20
-                    implicitHeight: 20
-                    radius: width / 2
-                    color: "transparent"
-                    border.width: 2
-                    border.color: addField.activeFocus
+                    implicitWidth: undoText.implicitWidth + 18
+                    implicitHeight: 24
+                    radius: Appearance.rounding.verysmall
+                    color: undoArea.containsMouse
+                        ? Appearance.colors.colPrimary
+                        : Appearance.colors.colPrimaryContainer
+
+                    Behavior on color {
+                        animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(this)
+                    }
+
+                    StyledText {
+                        id: undoText
+                        anchors.centerIn: parent
+                        text: Translation.tr("Undo")
+                        font.pixelSize: Appearance.font.pixelSize.smallest
+                        font.weight: Font.DemiBold
+                        color: undoArea.containsMouse
+                            ? Appearance.colors.colOnPrimary
+                            : Appearance.colors.colOnPrimaryContainer
+                    }
+
+                    MouseArea {
+                        id: undoArea
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: Todo.undoLast()
+                    }
+                }
+            }
+        }
+
+        // ── Add a task ────────────────────────────────────────────
+        RowLayout {
+            Layout.fillWidth: true
+            Layout.topMargin: 4
+            implicitHeight: 38
+            spacing: 11
+
+            Rectangle {
+                implicitWidth: 20
+                implicitHeight: 20
+                radius: width / 2
+                color: "transparent"
+                border.width: 2
+                border.color: addField.activeFocus
+                    ? Appearance.colors.colPrimary
+                    : Appearance.m3colors.m3outline
+
+                MaterialSymbol {
+                    anchors.centerIn: parent
+                    text: "add"
+                    iconSize: 14
+                    color: addField.activeFocus
                         ? Appearance.colors.colPrimary
                         : Appearance.m3colors.m3outline
+                }
+            }
 
-                    MaterialSymbol {
-                        anchors.centerIn: parent
-                        text: "add"
-                        iconSize: 14
-                        color: addField.activeFocus
-                            ? Appearance.colors.colPrimary
-                            : Appearance.m3colors.m3outline
-                    }
+            StyledTextInput {
+                id: addField
+                Layout.fillWidth: true
+                font.pixelSize: Appearance.font.pixelSize.small
+                color: Appearance.colors.colOnLayer1
+
+                onAccepted: {
+                    Todo.addTask(text);
+                    text = "";
+                }
+                Keys.onEscapePressed: {
+                    text = "";
+                    focus = false;
+                    root.dismissed();
                 }
 
-                StyledTextInput {
-                    id: addField
-                    Layout.fillWidth: true
+                StyledText {
+                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.left: parent.left
+                    visible: addField.text.length === 0
+                    text: Translation.tr("Add a task…")
                     font.pixelSize: Appearance.font.pixelSize.small
-                    color: Appearance.colors.colOnLayer1
-
-                    onAccepted: {
-                        Todo.addTask(text);
-                        text = "";
-                    }
-                    Keys.onEscapePressed: {
-                        text = "";
-                        focus = false;
-                        root.dismissed();
-                    }
-
-                    StyledText {
-                        anchors.verticalCenter: parent.verticalCenter
-                        anchors.left: parent.left
-                        visible: addField.text.length === 0
-                        text: Translation.tr("Add a task…")
-                        font.pixelSize: Appearance.font.pixelSize.small
-                        color: Appearance.colors.colSubtext
-                    }
+                    color: Appearance.colors.colSubtext
                 }
             }
         }
     }
 
-
-        // ── Resize grips ──────────────────────────────────────────
-        // Siblings of the content, declared after it so they sit on top of the
-        // rows without the rows' own mouse areas swallowing the drag.
-        //
-        // Deltas are measured in GLOBAL coordinates. A grip's local mouse x/y
-        // shift as the card resizes underneath it, which feeds the resize back
-        // into its own input and makes the card judder — the same trap the dock
-        // magnification fell into.
-        ResizeGrip { edge: "right" }
-        ResizeGrip { edge: "bottom" }
-        ResizeGrip { edge: "corner" }
-
-    // ── Settings menu ─────────────────────────────────────────────
-    // Catcher AND menu are both reparented to the surface, because z-order only
-    // sorts among siblings. Leaving the menu as a child of the card put it below
-    // the catcher no matter how high its own z was, so the catcher ate every
-    // click and none of the menu items ever fired.
-    MouseArea {
-        parent: root.parent
-        anchors.fill: parent
-        visible: root.menuOpen
-        acceptedButtons: Qt.LeftButton | Qt.RightButton
-        z: 90
-        onClicked: root.menuOpen = false
-    }
-
-    TodoMenu {
-        id: settingsMenu
-        parent: root.parent
-        open: root.menuOpen
-        z: 100
-        // Now in surface coordinates, so the card's own position has to be added.
-        // Flips to the other side of the cursor when it would run off an edge.
-        x: Math.max(8, Math.min(root.x + root.menuPos.x,
-                                root.screenWidth - width - 8))
-        y: (root.y + root.menuPos.y + height > root.screenHeight)
-            ? Math.max(8, root.y + root.menuPos.y - height)
-            : root.y + root.menuPos.y
-        onRequestClose: root.menuOpen = false
-    }
-
     // ── Duration picker ───────────────────────────────────────────
-    Rectangle {
-        anchors.fill: cardBackground
+    // Full-bleed, so it goes in the overlay slot rather than the padded content.
+    overlayData: Rectangle {
+        anchors.fill: parent
         radius: root.cardRadius
         visible: root.pickerTask !== null
         color: Qt.rgba(
@@ -562,8 +409,8 @@ Item {
         border.color: Appearance.colors.colLayer0Border
 
         // Clicking off the picker cancels rather than silently swallowing the
-        // click. Swallowing it made the picker a dead end: no button, and Escape
-        // only works if the surface happens to hold keyboard focus.
+        // click. Swallowing it made the picker a dead end: no button, and
+        // Escape only works if the surface happens to hold keyboard focus.
         MouseArea {
             anchors.fill: parent
             onClicked: root.pickerTask = null
@@ -578,95 +425,10 @@ Item {
                 FocusTimer.start(root.pickerTask.id, root.pickerTask.content, seconds);
                 root.pickerTask = null;
             }
-            onCancelled: root.pickerTask = null
-        }
-    }
-
-    // One resize handle. `edge` picks which dimensions it drives and where it
-    // sits; everything else is shared.
-    component ResizeGrip: MouseArea {
-        id: grip
-        required property string edge
-        readonly property int thickness: 10
-
-        parent: cardBackground
-        hoverEnabled: true
-        acceptedButtons: Qt.LeftButton
-        z: 50
-
-        anchors.right: grip.edge !== "bottom" ? parent.right : undefined
-        anchors.left: grip.edge === "bottom" ? parent.left : undefined
-        anchors.bottom: grip.edge !== "right" ? parent.bottom : undefined
-        anchors.top: grip.edge === "right" ? parent.top : undefined
-        anchors.bottomMargin: grip.edge === "right" ? grip.thickness : 0
-        anchors.rightMargin: grip.edge === "bottom" ? grip.thickness : 0
-
-        implicitWidth: grip.edge === "bottom" ? 0 : grip.thickness
-        implicitHeight: grip.edge === "right" ? 0 : grip.thickness
-        width: grip.edge === "bottom" ? parent.width - grip.thickness : grip.thickness
-        height: grip.edge === "right" ? parent.height - grip.thickness : grip.thickness
-
-        cursorShape: grip.edge === "right" ? Qt.SizeHorCursor
-            : grip.edge === "bottom" ? Qt.SizeVerCursor
-            : Qt.SizeFDiagCursor
-
-        property real startWidth: 0
-        property real startList: 0
-        property point startGlobal: Qt.point(0, 0)
-
-        onPressed: mouse => {
-            grip.startWidth = root.width;
-            grip.startList = root.effectiveListHeight;
-            grip.startGlobal = grip.mapToGlobal(mouse.x, mouse.y);
-            root.resizing = true;
-        }
-
-        onPositionChanged: mouse => {
-            if (!grip.pressed) return;
-            const now = grip.mapToGlobal(mouse.x, mouse.y);
-            const dx = now.x - grip.startGlobal.x;
-            const dy = now.y - grip.startGlobal.y;
-
-            // Into the pending values, not into config — see the note on
-            // pendingWidth for what writing config per motion event cost.
-            if (grip.edge !== "bottom") {
-                root.pendingWidth = Math.max(root.config.minWidth,
-                    Math.min(root.config.maxWidth, grip.startWidth + dx));
-            }
-            if (grip.edge !== "right") {
-                root.pendingListHeight = Math.max(40,
-                    Math.min(900, grip.startList + dy));
-            }
-        }
-
-        onReleased: grip.finish()
-        onCanceled: grip.finish()
-
-        function finish() {
-            if (!root.resizing) return;
-            root.resizing = false;
-            if (root.pendingWidth >= 0)
-                root.config.width = Math.round(root.pendingWidth);
-            if (root.pendingListHeight >= 0)
-                root.config.listHeight = Math.round(root.pendingListHeight);
-            root.pendingWidth = -1;
-            root.pendingListHeight = -1;
-        }
-
-        // Corner gets a visible grip; the edges stay invisible so the card keeps
-        // its clean silhouette until you actually reach for them.
-        MaterialSymbol {
-            visible: grip.edge === "corner"
-            anchors.centerIn: parent
-            text: "drag_handle"
-            rotation: -45
-            iconSize: 12
-            color: Appearance.colors.colSubtext
-            opacity: grip.containsMouse || grip.pressed ? 0.9 : 0.28
-            Behavior on opacity {
-                animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+            onCancelled: {
+                root.pickerTask = null;
+                root.dismissed();
             }
         }
     }
-
 }
