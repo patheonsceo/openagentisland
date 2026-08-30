@@ -132,6 +132,16 @@ circle out of a button that stretches to the headerbar height.
   settle, then measure.
 - Dock pointer position cannot come from a `HoverHandler` on the row — delegate
   MouseAreas swallow hover first.
+- **ydotool leaves modifiers stuck, and Hyprland then eats every left click.**
+  Synthetic left-clicks reached no MouseArea at all while right-clicks worked
+  normally — because `SUPER + mouse:272` is bound to "Window: Move", so a
+  phantom held modifier made the compositor grab the button before the surface
+  saw it. Right-click needs a different modmask and passed straight through,
+  which is what made it look like a code bug. Release them first:
+  `ydotool key 125:0 126:0 42:0 29:0 56:0`. After that a scripted drag tracked
+  the cursor with 0px error. Also: ydotool's `--absolute` is not absolute here,
+  and relative moves overshoot by ~1.4x, so drive the pointer with a feedback
+  loop against `hyprctl cursorpos` rather than trusting a single warp.
 - **A hot reload can log "Configuration Loaded" and still be running the OLD code.**
   Edits to `TodoCard.qml` produced a reload in the log, but a
   `Component.onCompleted: console.log(...)` added to that file never printed until
