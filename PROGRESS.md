@@ -132,6 +132,20 @@ circle out of a button that stretches to the headerbar height.
   settle, then measure.
 - Dock pointer position cannot come from a `HoverHandler` on the row — delegate
   MouseAreas swallow hover first.
+- **A hot reload can log "Configuration Loaded" and still be running the OLD code.**
+  Edits to `TodoCard.qml` produced a reload in the log, but a
+  `Component.onCompleted: console.log(...)` added to that file never printed until
+  the shell was **cold-restarted** — at which point it printed immediately. This is
+  the atomic-write watch problem: editors that save by writing a temp file and
+  renaming it replace the inode, so the watch fires but the component is not
+  rebuilt. Consequence: **any behavioural test after editing a nested component is
+  meaningless without a cold restart.** Several hours went into "the fix does not
+  work" results that were measuring the unfixed code. Restart with
+  `kill -TERM $(pgrep -x qs)` then
+  `setsid nohup qs -c openagentisland > /tmp/qs.log 2>&1 &` — logging to a file you
+  control beats `qs log`, which streams from the beginning and gets cut off.
+  (`pgrep -f "qs -c openagentisland"` matches your own shell command and kills it —
+  use `pgrep -x qs`.)
 
 ### Next
 
