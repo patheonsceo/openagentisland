@@ -42,6 +42,17 @@ Item {
     implicitWidth: root.config.width
     implicitHeight: contentColumn.implicitHeight + root.padding * 2
 
+    // Resizing vertically changes the height of the SCROLLABLE task area, not
+    // the whole card. The header, Completed section and add-row keep their
+    // natural size, so the card grows exactly by what you dragged and never
+    // fights the content-driven height binding above (which is what collapsed
+    // it to zero the first time round).
+    readonly property real naturalListHeight: taskColumn.implicitHeight
+    readonly property bool listIsClamped: root.config.listHeight > 0
+    readonly property real effectiveListHeight: root.listIsClamped
+        ? Math.max(40, root.config.listHeight)
+        : root.naturalListHeight
+
     function startTask(task) {
         root.pickerTask = task;
     }
@@ -148,15 +159,52 @@ Item {
             }
 
             // ── Unfinished ────────────────────────────────────────
-            Repeater {
-                model: root.unfinished
-                delegate: TodoRow {
-                    required property var modelData
-                    Layout.fillWidth: true
-                    item: modelData
-                    onToggleRequested: Todo.toggleDoneById(modelData.id)
-                    onDeleteRequested: Todo.deleteById(modelData.id)
-                    onStartRequested: root.startTask(modelData)
+            // Clipped + flickable so a dragged-down height means "show fewer
+            // rows and scroll", rather than squashing every row.
+            Flickable {
+                Layout.fillWidth: true
+                implicitHeight: root.effectiveListHeight
+                contentHeight: taskColumn.implicitHeight
+                clip: true
+                interactive: root.listIsClamped && contentHeight > height
+                boundsBehavior: Flickable.StopAtBounds
+                flickDeceleration: 6000
+
+                ColumnLayout {
+                    id: taskColumn
+                    width: parent.width
+                    spacing: 0
+
+                    Repeater {
+                        model: root.unfinished
+                        delegate: TodoRow {
+                            required property var modelData
+                            Layout.fillWidth: true
+                            item: modelData
+                            onToggleRequested: Todo.toggleDoneById(modelData.id)
+                            onDeleteRequested: Todo.deleteById(modelData.id)
+                            onStartRequested: root.startTask(modelData)
+                        }
+                    }
+                }
+
+                // Fades the cut-off row so a clipped list reads as scrollable
+                // rather than as a rendering glitch.
+                Rectangle {
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.bottom: parent.bottom
+                    height: 18
+                    visible: root.listIsClamped && parent.contentHeight > parent.height
+                    gradient: Gradient {
+                        GradientStop { position: 0.0; color: "transparent" }
+                        GradientStop {
+                            position: 1.0
+                            color: Qt.rgba(Appearance.colors.colLayer0.r,
+                                           Appearance.colors.colLayer0.g,
+                                           Appearance.colors.colLayer0.b, 0.55)
+                        }
+                    }
                 }
             }
 
@@ -280,6 +328,19 @@ Item {
         }
     }
 
+
+        // ── Resize grips ──────────────────────────────────────────
+        // Siblings of the content, declared after it so they sit on top of the
+        // rows without the rows' own mouse areas swallowing the drag.
+        //
+        // Deltas are measured in GLOBAL coordinates. A grip's local mouse x/y
+        // shift as the card resizes underneath it, which feeds the resize back
+        // into its own input and makes the card judder — the same trap the dock
+        // magnification fell into.
+        ResizeGrip { edge: "right" }
+        ResizeGrip { edge: "bottom" }
+        ResizeGrip { edge: "corner" }
+
     // ── Duration picker ───────────────────────────────────────────
     Rectangle {
         anchors.fill: cardBackground
@@ -308,4 +369,80 @@ Item {
             onCancelled: root.pickerTask = null
         }
     }
+
+    // One resize handle. `edge` picks which dimensions it drives and where it
+    // sits; everything else is shared.
+    component ResizeGrip: MouseArea {
+        id: grip
+        required property string edge
+        readonly property int thickness: 10
+
+        parent: cardBackground
+        hoverEnabled: true
+        acceptedButtons: Qt.LeftButton
+        z: 50
+
+        anchors.right: grip.edge !== "bottom" ? parent.right : undefined
+        anchors.left: grip.edge === "bottom" ? parent.left : undefined
+        anchors.bottom: grip.edge !== "right" ? parent.bottom : undefined
+        anchors.top: grip.edge === "right" ? parent.top : undefined
+        anchors.bottomMargin: grip.edge === "right" ? grip.thickness : 0
+        anchors.rightMargin: grip.edge === "bottom" ? grip.thickness : 0
+
+        implicitWidth: grip.edge === "bottom" ? 0 : grip.thickness
+        implicitHeight: grip.edge === "right" ? 0 : grip.thickness
+        width: grip.edge === "bottom" ? parent.width - grip.thickness : grip.thickness
+        height: grip.edge === "right" ? parent.height - grip.thickness : grip.thickness
+
+        cursorShape: grip.edge === "right" ? Qt.SizeHorCursor
+            : grip.edge === "bottom" ? Qt.SizeVerCursor
+            : Qt.SizeFDiagCursor
+
+        property real startWidth: 0
+        property real startList: 0
+        property point startGlobal: Qt.point(0, 0)
+
+        onPressed: mouse => {
+            grip.startWidth = root.width;
+            grip.startList = root.effectiveListHeight;
+            grip.startGlobal = grip.mapToGlobal(mouse.x, mouse.y);
+        }
+
+        onPositionChanged: mouse => {
+            if (!grip.pressed) return;
+            const now = grip.mapToGlobal(mouse.x, mouse.y);
+            const dx = now.x - grip.startGlobal.x;
+            const dy = now.y - grip.startGlobal.y;
+
+            if (grip.edge !== "bottom") {
+                root.config.width = Math.max(root.config.minWidth,
+                    Math.min(root.config.maxWidth, grip.startWidth + dx));
+            }
+            if (grip.edge !== "right") {
+                root.config.listHeight = Math.max(40,
+                    Math.min(900, grip.startList + dy));
+            }
+        }
+
+        onReleased: {
+            root.config.width = Math.round(root.config.width);
+            root.config.listHeight = Math.round(root.config.listHeight);
+        }
+
+        // Corner gets a visible grip; the edges stay invisible so the card keeps
+        // its clean silhouette until you actually reach for them.
+        MaterialSymbol {
+            visible: grip.edge === "corner"
+            anchors.centerIn: parent
+            text: "drag_handle"
+            rotation: -45
+            iconSize: 12
+            color: Appearance.colors.colSubtext
+            opacity: grip.containsMouse || grip.pressed ? 0.9 : 0.28
+            Behavior on opacity {
+                animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+            }
+        }
+    }
+
 }

@@ -752,3 +752,27 @@ margin; it breaks the moment the toolbar height changes.
 opacity nor explicit `background-size` brought them back. Verified with the
 cursor genuinely on the button (its "Minimize" tooltip fired). GTK apps do get
 hover glyphs; Zen gets colour only.
+
+### 6.6 Resizing
+
+Right edge drags width, bottom edge drags the task-list height, bottom-right
+corner does both. Bounds come from `background.widgets.todo` (`minWidth`,
+`maxWidth`); the list clamps at 40px so it can never collapse to nothing.
+
+**Vertical resize changes the LIST height, not the card's.** The header,
+Completed section and add-row keep their natural size and the card grows by
+exactly what was dragged. Resizing the card itself would mean anchoring the
+content column top *and* bottom, which puts height on both sides of one binding
+— the same loop that rendered the widget invisible the first time (§6.5).
+
+The task rows sit in a clipped `Flickable`, so a short height means "show fewer
+rows and scroll" rather than squashing every row. A gradient at the cut-off edge
+signals there is more below.
+
+Grip deltas are measured in **global** coordinates. A grip's local mouse x/y
+shift as the card resizes underneath it, which feeds the resize back into its own
+input and makes the card judder — the same trap the dock magnification fell into
+(§7.2).
+
+The right-edge grip is 10px and the card's content padding is 16px, so the grip
+sits inside the padding and never steals clicks from a row's ▶ button.

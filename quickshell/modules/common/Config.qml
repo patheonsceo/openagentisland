@@ -215,6 +215,14 @@ Singleton {
                         property real x: 1400
                         property real y: 120
                         property real width: 320
+                        // Height of the scrollable task area. Resizing vertically
+                        // changes how many rows are visible rather than the whole
+                        // card: the header, add-row and Completed section always
+                        // stay put, which is what makes the card feel fixed while
+                        // the list inside it grows.
+                        property real listHeight: 0     // 0 = fit content
+                        property real minWidth: 260
+                        property real maxWidth: 620
                         property string listName: "Today"
                         // Which monitor to show on. Empty means the first screen;
                         // one list on three monitors would just be three copies.
