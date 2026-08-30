@@ -40,6 +40,12 @@ Scope {
 
     readonly property int barHeight: 30
     readonly property int scrimHeight: 46
+    // Which dropdown is open, if any. One string rather than a flag each: it
+    // makes "only one at a time" structural instead of something every handler
+    // has to remember to enforce, and the click-away catcher needs a single
+    // thing to watch.
+    property string openMenu: ""
+
     readonly property string material: Config.options?.bar?.menubarMaterial ?? "bar"
     readonly property real materialOpacity: Config.options?.bar?.menubarOpacity ?? 0.55
     readonly property int sideMargin: 13
@@ -76,11 +82,22 @@ Scope {
                 ]
             }
 
+            // The bar is "persistent": part of the grab so clicking it is not
+            // treated as clicking away, but never closed by a dismiss itself.
+            Component.onCompleted: GlobalFocusGrab.addPersistent(barWindow)
+            Component.onDestruction: GlobalFocusGrab.removePersistent(barWindow)
+            Connections {
+                target: GlobalFocusGrab
+                function onDismissed() {
+                    root.openMenu = "";
+                    barWindow.controlCentreOpen = false;
+                    barWindow.calendarOpen = false;
+                }
+            }
+
             // Dropdown state. Only one of these is ever open at a time.
             property bool calendarOpen: false
             property bool controlCentreOpen: false
-            property bool systemMenuOpen: false
-            property bool appMenuOpen: false
 
             readonly property bool focusedHere:
                 (Hyprland.focusedMonitor?.name ?? "") === (barWindow.screen.name ?? "")
@@ -140,105 +157,103 @@ Scope {
                 }
             }
 
-            // ── Left: logo, app name, workspaces ─────────────────
+            // ── Left: menu titles, then workspaces ───────────────
             RowLayout {
                 id: leftCluster
                 anchors.left: parent.left
                 anchors.top: parent.top
                 anchors.leftMargin: root.sideMargin
                 height: root.barHeight
-                spacing: 15
+                spacing: 2
 
-                MenuItem {
-                    id: systemMenuItem
+                MenuTitle {
+                    id: systemTitle
+                    menuId: "system"
                     symbol: Config.options.bar.topLeftIcon === "spark" ? "auto_awesome" : "linux"
-                    active: barWindow.systemMenuOpen
-                    onTriggered: {
-                        barWindow.systemMenuOpen = !barWindow.systemMenuOpen;
-                        barWindow.controlCentreOpen = false;
-                        barWindow.calendarOpen = false;
-                        barWindow.appMenuOpen = false;
-                    }
-                    // The sidebar this used to toggle is now a row in the menu.
-                    onSecondary: GlobalStates.sidebarLeftOpen = !GlobalStates.sidebarLeftOpen
-
                     IslandPopup {
-                        anchorItem: systemMenuItem
-                        shouldShow: barWindow.systemMenuOpen
+                        anchorItem: systemTitle
+                        shouldShow: root.openMenu === "system"
                         interactive: true
                         contentComponent: Component {
                             SystemMenu {
-                                open: barWindow.systemMenuOpen
-                                onRequestClose: barWindow.systemMenuOpen = false
+                                open: root.openMenu === "system"
+                                onRequestClose: root.openMenu = ""
                             }
                         }
                     }
                 }
 
-                Item {
-                    id: appMenuItem
-                    Layout.alignment: Qt.AlignVCenter
-                    implicitWidth: Math.min(260, appNameText.implicitWidth + 16)
-                    implicitHeight: root.barHeight - 6
-
-                    Rectangle {
-                        anchors.fill: parent
-                        radius: Appearance.rounding.verysmall
-                        color: barWindow.appMenuOpen ? Appearance.colors.colPrimary
-                            : appNameArea.containsMouse ? Appearance.colors.colLayer1Hover
-                            : "transparent"
-                        Behavior on color {
-                            animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(this)
-                        }
-                    }
-
-                    StyledText {
-                        id: appNameText
-                        anchors.centerIn: parent
-                        width: Math.min(244, implicitWidth)
-                        text: barWindow.appName
-                        font.pixelSize: Appearance.font.pixelSize.smaller
-                        font.weight: Font.Bold
-                        color: barWindow.appMenuOpen ? Appearance.colors.colOnPrimary
-                            : Appearance.colors.colOnLayer0
-                        elide: Text.ElideRight
-                        maximumLineCount: 1
-                    }
-
-                    MouseArea {
-                        id: appNameArea
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: {
-                            barWindow.appMenuOpen = !barWindow.appMenuOpen;
-                            barWindow.systemMenuOpen = false;
-                            barWindow.controlCentreOpen = false;
-                            barWindow.calendarOpen = false;
-                        }
-                    }
-
+                MenuTitle {
+                    id: windowTitle
+                    menuId: "window"
+                    label: Translation.tr("Window")
                     IslandPopup {
-                        anchorItem: appMenuItem
-                        shouldShow: barWindow.appMenuOpen
+                        anchorItem: windowTitle
+                        shouldShow: root.openMenu === "window"
                         interactive: true
                         contentComponent: Component {
                             AppMenu {
-                                open: barWindow.appMenuOpen
+                                open: root.openMenu === "window"
                                 appName: barWindow.appName
-                                onRequestClose: barWindow.appMenuOpen = false
+                                onRequestClose: root.openMenu = ""
                             }
                         }
                     }
                 }
 
+                MenuTitle {
+                    id: goTitle
+                    menuId: "go"
+                    label: Translation.tr("Go")
+                    IslandPopup {
+                        anchorItem: goTitle
+                        shouldShow: root.openMenu === "go"
+                        interactive: true
+                        contentComponent: Component {
+                            GoMenu { open: root.openMenu === "go"; onRequestClose: root.openMenu = "" }
+                        }
+                    }
+                }
+
+                MenuTitle {
+                    id: captureTitle
+                    menuId: "capture"
+                    label: Translation.tr("Capture")
+                    IslandPopup {
+                        anchorItem: captureTitle
+                        shouldShow: root.openMenu === "capture"
+                        interactive: true
+                        contentComponent: Component {
+                            CaptureMenu { open: root.openMenu === "capture"; onRequestClose: root.openMenu = "" }
+                        }
+                    }
+                }
+
+                MenuTitle {
+                    id: focusTitle
+                    menuId: "focus"
+                    label: Translation.tr("Focus")
+                    IslandPopup {
+                        anchorItem: focusTitle
+                        shouldShow: root.openMenu === "focus"
+                        interactive: true
+                        contentComponent: Component {
+                            FocusMenu { open: root.openMenu === "focus"; onRequestClose: root.openMenu = "" }
+                        }
+                    }
+                }
+
+                // Workspaces sit at the right end of the menu titles, compact —
+                // they are an indicator, not a menu, so they read better after
+                // the things that are.
                 IslandWorkspaces {
                     Layout.alignment: Qt.AlignVCenter
+                    Layout.leftMargin: 10
                     height: root.barHeight
                     usedColor: Appearance.colors.colOnLayer0
                     activeColor: Appearance.colors.colPrimary
-                    emptyOpacity: 0.4
-                    capsuleWidth: 26
+                    emptyOpacity: 0.35
+                    capsuleWidth: 18
                 }
             }
 
@@ -317,8 +332,7 @@ Scope {
                     onTriggered: {
                         barWindow.controlCentreOpen = !barWindow.controlCentreOpen;
                         barWindow.calendarOpen = false;
-                        barWindow.systemMenuOpen = false;
-                        barWindow.appMenuOpen = false;
+                        root.openMenu = "";
                     }
                     onSecondary: Quickshell.execDetached(["bash", "-c", Config.options.apps.taskManager])
 
@@ -405,6 +419,64 @@ Scope {
     // Every item does something specific rather than all opening the same
     // sidebar: left click is the primary action, right click opens the full
     // application for it, and scrolling adjusts where adjusting makes sense.
+    // A menubar menu title: text (or a symbol for the system menu), with the
+    // filled highlight an open menu gets on macOS. Hovering a sibling while a
+    // menu is already open switches to it without a second click, which is how
+    // a real menu bar behaves.
+    component MenuTitle: Item {
+        id: title
+        required property string menuId
+        property string label: ""
+        property string symbol: ""
+        readonly property bool isOpen: root.openMenu === title.menuId
+
+        Layout.alignment: Qt.AlignVCenter
+        implicitWidth: title.symbol.length > 0 ? 28 : titleText.implicitWidth + 18
+        implicitHeight: root.barHeight - 6
+
+        Rectangle {
+            anchors.fill: parent
+            radius: Appearance.rounding.verysmall
+            color: title.isOpen ? Appearance.colors.colPrimary
+                : titleArea.containsMouse ? Appearance.colors.colLayer1Hover
+                : "transparent"
+            Behavior on color {
+                animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(this)
+            }
+        }
+
+        MaterialSymbol {
+            anchors.centerIn: parent
+            visible: title.symbol.length > 0
+            text: title.symbol
+            iconSize: 17
+            color: title.isOpen ? Appearance.colors.colOnPrimary : Appearance.colors.colOnLayer0
+        }
+
+        StyledText {
+            id: titleText
+            anchors.centerIn: parent
+            visible: title.symbol.length === 0
+            text: title.label
+            font.pixelSize: Appearance.font.pixelSize.smaller
+            font.weight: Font.DemiBold
+            color: title.isOpen ? Appearance.colors.colOnPrimary : Appearance.colors.colOnLayer0
+        }
+
+        MouseArea {
+            id: titleArea
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: {
+                root.openMenu = title.isOpen ? "" : title.menuId;
+                barWindow.controlCentreOpen = false;
+                barWindow.calendarOpen = false;
+            }
+            onEntered: if (root.openMenu !== "" && !title.isOpen) root.openMenu = title.menuId;
+        }
+    }
+
     component MenuItem: MaterialSymbol {
         id: menuItem
         required property string symbol

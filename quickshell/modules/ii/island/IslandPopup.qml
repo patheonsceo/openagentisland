@@ -1,4 +1,6 @@
 pragma ComponentBehavior: Bound
+import qs
+import qs.services
 import qs.modules.common
 import QtQuick
 import Quickshell
@@ -41,8 +43,15 @@ Item {
         active: root.alive && !!root.anchorItem
         onActiveChanged: if (!active) root.contentHovered = false
         sourceComponent: PopupWindow {
+            id: popupWindow
             visible: true
             color: "transparent"
+
+            // Clickable popups join the focus grab, otherwise a click on the
+            // popup itself reads as "clicked outside" and dismisses it. Hover
+            // tooltips stay out of it — they have nothing to click.
+            Component.onCompleted: if (root.interactive) GlobalFocusGrab.addDismissable(popupWindow)
+            Component.onDestruction: if (root.interactive) GlobalFocusGrab.removeDismissable(popupWindow)
             anchor {
                 window: root.anchorItem.QsWindow.window
                 item: root.anchorItem
