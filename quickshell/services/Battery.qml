@@ -30,6 +30,28 @@ Singleton {
     // ── Automatic power profile ───────────────────────────────────
     readonly property var autoProfileCfg: Config.options?.battery?.autoProfile
 
+    // The declaration for this went missing when the powerprofilesctl rewrite
+    // replaced the block around it. QML does not error on an undefined property
+    // in an expression — it just yields `undefined`, which is falsy, so the
+    // shell silently concluded it was on mains every single time.
+    //
+    // NOT UPower.onBattery: no such property exists. NOT isPluggedIn either,
+    // which is false whenever the pack reads Full on AC. The device state says
+    // it plainly.
+    readonly property bool runningOnBattery:
+        root.chargeState === UPowerDeviceState.Discharging
+    onRunningOnBatteryChanged: root.applyAutoProfile()
+
+    // This has now failed three separate ways: a wrong config path, a property
+    // that does not exist, and a stale DBus value. A cheap periodic check means
+    // no single missed transition strands the machine in the wrong profile.
+    Timer {
+        interval: 60000
+        running: true
+        repeat: true
+        onTriggered: root.applyAutoProfile()
+    }
+
     // Set through powerprofilesctl rather than PowerProfiles.profile.
     // Quickshell's DBus property was observed reporting Balanced(1) while the
     // daemon itself reported power-saver, so comparing against it skipped the
