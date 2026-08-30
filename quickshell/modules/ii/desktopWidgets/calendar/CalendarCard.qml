@@ -109,10 +109,9 @@ DesktopWidget {
         // ── Header ────────────────────────────────────────────────
         RowLayout {
             Layout.fillWidth: true
-            spacing: 4
+            spacing: 8
 
             ColumnLayout {
-                Layout.fillWidth: true
                 spacing: 0
 
                 StyledText {
@@ -128,25 +127,40 @@ DesktopWidget {
                 }
             }
 
-            NavButton {
-                symbol: "today"
-                visible: !root.onToday
-                onTriggered: root.goToday()
-            }
-            NavButton {
-                symbol: "chevron_left"
-                onTriggered: root.step(-1)
-            }
-            NavButton {
-                symbol: "chevron_right"
-                onTriggered: root.step(1)
+            // An explicit spacer, not Layout.fillWidth on the column above.
+            // QtQuick Layouts derives a nested layout's MAXIMUM width from its
+            // children, and a Text without its own fillWidth caps that at the
+            // widest line — so the column could never grow, there was no space
+            // to distribute, and the buttons sat jammed against the month name.
+            Item { Layout.fillWidth: true }
+
+            RowLayout {
+                Layout.alignment: Qt.AlignVCenter
+                spacing: 2
+
+                NavButton {
+                    symbol: "chevron_left"
+                    onTriggered: root.step(-1)
+                }
+                // Kept in the row even when it does nothing. Hiding it shifted
+                // both chevrons sideways the moment you paged away from today,
+                // so the control you were aiming at moved under the cursor.
+                NavButton {
+                    symbol: "trip_origin"
+                    active: !root.onToday
+                    onTriggered: root.goToday()
+                }
+                NavButton {
+                    symbol: "chevron_right"
+                    onTriggered: root.step(1)
+                }
             }
         }
 
         // ── Weekday header ────────────────────────────────────────
         RowLayout {
             Layout.fillWidth: true
-            Layout.topMargin: 10
+            Layout.topMargin: 14
             spacing: 0
 
             Repeater {
@@ -217,12 +231,20 @@ DesktopWidget {
     component NavButton: Rectangle {
         id: btn
         required property string symbol
+        property bool active: true
         signal triggered()
 
-        implicitWidth: 26
-        implicitHeight: 26
+        implicitWidth: 30
+        implicitHeight: 30
         radius: width / 2
-        color: btnArea.containsMouse ? Appearance.colors.colLayer2Hover : "transparent"
+        opacity: btn.active ? 1 : 0.32
+        color: btnArea.containsMouse && btn.active
+            ? Appearance.colors.colLayer2Hover
+            : "transparent"
+
+        Behavior on opacity {
+            animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+        }
 
         Behavior on color {
             animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(this)
@@ -239,6 +261,7 @@ DesktopWidget {
             id: btnArea
             anchors.fill: parent
             hoverEnabled: true
+            enabled: btn.active
             cursorShape: Qt.PointingHandCursor
             onClicked: btn.triggered()
         }
