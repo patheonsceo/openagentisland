@@ -40,9 +40,12 @@ Scope {
     id: root
 
     readonly property var cfg: Config.options?.dock
-    readonly property real iconSize: root.cfg?.macStyle?.iconSize ?? 42
-    readonly property real itemSpacing: 8
-    readonly property real containerPadding: 7
+    readonly property real iconSize: root.cfg?.macStyle?.iconSize ?? 52
+    readonly property real containerOpacity: root.cfg?.macStyle?.opacity ?? 0.55
+    // Both scale with the icon, so changing the size keeps the proportions
+    // instead of leaving a bigger icon crammed into the same padding.
+    readonly property real itemSpacing: Math.round(root.iconSize * 0.19)
+    readonly property real containerPadding: Math.round(root.iconSize * 0.17)
     // Container height, and what the dock reserves at the bottom. The
     // magnification headroom above it is deliberately NOT reserved —
     // icons rise into free space rather than pushing every window down.
@@ -120,13 +123,16 @@ Scope {
                 Rectangle {
                     id: container
                     anchors.fill: parent
-                    radius: root.iconSize * 0.4
+                    radius: root.iconSize * 0.42
                     color: Qt.rgba(Appearance.colors.colLayer0.r,
                                    Appearance.colors.colLayer0.g,
-                                   Appearance.colors.colLayer0.b, 0.82)
+                                   Appearance.colors.colLayer0.b,
+                                   root.containerOpacity)
+                    // A light hairline rather than the layer border. Once the
+                    // fill is this open, a dark edge reads as a hole cut in the
+                    // wallpaper; a bright one reads as the rim of a pane.
                     border.width: 1
-                    border.color: Appearance.colors.colLayer0Border
-
+                    border.color: Qt.rgba(1, 1, 1, 0.13)
                 }
 
                 Row {
@@ -150,6 +156,15 @@ Scope {
 
                     // Trailing group: separator, then the app grid.
                     Rectangle {
+                        // The model already puts a separator after the pinned
+                        // group. With nothing unpinned running, that separator
+                        // IS the last item and sat a few pixels from this one —
+                        // two hairlines where the design calls for one.
+                        visible: {
+                            const a = TaskbarApps.apps;
+                            return !(a.length > 0
+                                && a[a.length - 1].appId === "SEPARATOR");
+                        }
                         anchors.verticalCenter: parent.verticalCenter
                         width: 1
                         height: root.iconSize * 0.62

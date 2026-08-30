@@ -449,7 +449,11 @@ Singleton {
                 // dock rather than sliding beneath it.
                 property bool reserveSpace: true
                 property JsonObject macStyle: JsonObject {
-                    property real iconSize: 42
+                    property real iconSize: 52
+                    // How much of what is behind shows through. This started at
+                    // 0.82, which reads as a dark slab rather than glass; macOS
+                    // sits far more open than that.
+                    property real opacity: 0.55
                 }
                 property JsonObject magnification: JsonObject {
                     property bool enable: true
