@@ -7,6 +7,7 @@ import qs.modules.common.widgets
 import qs.modules.common.functions
 import QtQuick
 import QtQuick.Layouts
+import Qt.labs.folderlistmodel
 import Quickshell
 import Quickshell.Widgets
 import Quickshell.Wayland
@@ -55,6 +56,14 @@ Scope {
     readonly property real peak: root.cfg?.magnification?.peak ?? 1.28
     readonly property real spread: root.cfg?.magnification?.spread ?? 2.9
     readonly property bool magnifyEnabled: root.cfg?.magnification?.enable ?? true
+
+    FolderListModel {
+        id: trashModel
+        folder: `file://${Directories.home}/.local/share/Trash/files`
+        showDirs: true
+        showFiles: true
+        showHidden: true
+    }
 
     Variants {
         model: Quickshell.screens
@@ -177,6 +186,19 @@ Scope {
                         label: Translation.tr("Applications")
                         onActivated: GlobalStates.overviewOpen = !GlobalStates.overviewOpen
                     }
+
+                    // Trash, last in the row as on macOS. The icon reflects
+                    // whether there is anything in it, which is the only reason
+                    // the folder is watched at all — FolderListModel updates on
+                    // its own, so nothing here polls.
+                    DockItem {
+                        entry: null
+                        iconName: trashModel.count > 0 ? "user-trash-full" : "user-trash"
+                        label: trashModel.count > 0
+                            ? Translation.tr("Trash — %1 items").arg(trashModel.count)
+                            : Translation.tr("Trash — empty")
+                        onActivated: Quickshell.execDetached(["xdg-open", "trash:///"])
+                    }
                 }
             }
 
@@ -185,6 +207,9 @@ Scope {
                 id: item
                 property var entry: null
                 property string symbol: ""
+                // For items that are not applications and so have no appId to
+                // guess from — the Trash names its icon directly.
+                property string iconName: ""
                 property string label: ""
                 signal activated()
 
@@ -246,6 +271,8 @@ Scope {
                         property int retryTick: 0
                         source: {
                             const _ = iconImage.retryTick;
+                            if (item.iconName.length > 0)
+                                return Quickshell.iconPath(item.iconName, "application-x-executable");
                             if (item.appId.length === 0) return "";
                             // "image-missing" renders a broken-image glyph — a
                             // visible error in the middle of the dock. Every
