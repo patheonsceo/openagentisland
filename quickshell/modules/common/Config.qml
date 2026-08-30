@@ -287,6 +287,11 @@ Singleton {
                         // Which of the above is currently on the face.
                         property string activeTimezone: "local"
                         property bool twelveHour: true
+                        // The time is the card's heading, so it gets a real
+                        // display size. Weight is the variable font's wght axis:
+                        // high-contrast serifs read better light when set large.
+                        property int timeSize: 76
+                        property int timeWeight: 300
                         property bool showSeconds: false
                         property bool showDate: true
                         property real tintOpacity: 0.10

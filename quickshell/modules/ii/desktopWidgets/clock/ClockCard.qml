@@ -257,18 +257,19 @@ DesktopWidget {
                 // Sans Flex's wght axis rides along and overrides the weight
                 // set here, so the serif never renders at its own default.
                 font.variableAxes: ({})
-                font.pixelSize: 46
-                font.weight: Font.Normal
+                font.pixelSize: root.config.timeSize
+                font.weight: root.config.timeWeight
                 color: Appearance.colors.colOnLayer0
             }
             StyledText {
                 Layout.alignment: Qt.AlignBottom
-                Layout.bottomMargin: 8
+                // Sits on the digits' baseline, so it has to move with them.
+                Layout.bottomMargin: Math.round(root.config.timeSize * 0.16)
                 visible: root.config.twelveHour
                 text: root.meridiem
                 font.family: Appearance.font.family.serif
                 font.variableAxes: ({})
-                font.pixelSize: Appearance.font.pixelSize.small
+                font.pixelSize: Math.max(11, Math.round(root.config.timeSize * 0.28))
                 font.weight: Font.DemiBold
                 color: Appearance.colors.colSubtext
             }

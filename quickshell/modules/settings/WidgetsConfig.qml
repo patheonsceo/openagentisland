@@ -209,6 +209,32 @@ ContentPage {
             }
         }
 
+        ConfigSpinBox {
+            visible: page.board.clockCard.enable
+            icon: "format_size"
+            text: Translation.tr("Time size (px)")
+            value: page.board.clockCard.timeSize
+            from: 24
+            to: 200
+            stepSize: 2
+            onValueChanged: {
+                page.board.clockCard.timeSize = value;
+            }
+        }
+
+        ConfigSpinBox {
+            visible: page.board.clockCard.enable
+            icon: "line_weight"
+            text: Translation.tr("Time weight")
+            value: page.board.clockCard.timeWeight
+            from: 100
+            to: 900
+            stepSize: 100
+            onValueChanged: {
+                page.board.clockCard.timeWeight = value;
+            }
+        }
+
         ConfigSwitch {
             visible: page.board.clockCard.enable
             buttonIcon: "calendar_today"
