@@ -404,7 +404,7 @@ Scope {
                         shouldShow: barWindow.calendarOpen
                         interactive: true
                         contentComponent: Component {
-                            CalendarView {}
+                            BarCalendar {}
                         }
                     }
                 }
