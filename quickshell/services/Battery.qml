@@ -27,6 +27,34 @@ Singleton {
     property bool isSuspendingAndNotCharging: allowAutomaticSuspend && isSuspending && !isCharging
     property bool isFullAndCharging: isFull && isCharging
 
+    // ── Automatic power profile ───────────────────────────────────
+    readonly property var autoProfileCfg: Config.options?.battery?.autoProfile
+
+    function profileFromName(name) {
+        switch (name) {
+        case "performance": return PowerProfile.Performance;
+        case "balanced": return PowerProfile.Balanced;
+        default: return PowerProfile.PowerSaver;
+        }
+    }
+
+    function applyAutoProfile() {
+        if (!(root.autoProfileCfg?.enable ?? false)) return;
+        if (!root.available) return;
+        const want = root.profileFromName(root.isPluggedIn
+            ? (root.autoProfileCfg?.onAc ?? "balanced")
+            : (root.autoProfileCfg?.onBattery ?? "powerSaver"));
+        if (PowerProfiles.profile === want) return;
+        PowerProfiles.profile = want;
+    }
+
+    // Applied at startup too, not just on the transition. That is the case
+    // that actually bites: a profile set days ago and never reconsidered,
+    // which is how this machine ended up idling at 92C on battery.
+    Component.onCompleted: {
+        if (root.autoProfileCfg?.applyOnStart ?? true) root.applyAutoProfile();
+    }
+
     property real energyRate: UPower.displayDevice.changeRate
     property real timeToEmpty: UPower.displayDevice.timeToEmpty
     property real timeToFull: UPower.displayDevice.timeToFull
@@ -98,6 +126,9 @@ Singleton {
     }
 
     onIsPluggedInChanged: {
+        // Only on the transition, so a profile chosen by hand mid-session is
+        // not yanked back a second later.
+        root.applyAutoProfile();
         if (!root.available || !root.soundEnabled) return;
         if (isPluggedIn) {
             Audio.playSystemSound("power-plug")

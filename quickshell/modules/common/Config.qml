@@ -466,6 +466,21 @@ Singleton {
             // means it is not created at all — an inert catcher in the top
             // corners would swallow menubar clicks.
             // Actions: none | overview | search | notifications | sidebarLeft | lock
+            // Nothing on a plain Hyprland session changes the power profile when
+            // the charger comes out, so whatever it was last set to is what runs
+            // on battery. Left in "performance" that means the CPU holds high
+            // clocks and voltage while idle — measured here at 92C and roughly
+            // 45W, against 71C on balanced for the same 1.5% load.
+            property JsonObject autoProfile: JsonObject {
+                property bool enable: true
+                // Applied at startup too, not just on the transition. That is
+                // the case that actually bites: a profile set days ago and
+                // never reconsidered.
+                property bool applyOnStart: true
+                property string onBattery: "powerSaver"   // powerSaver | balanced | performance
+                property string onAc: "balanced"
+            }
+
             property JsonObject hotCorners: JsonObject {
                 property bool enable: true
                 property int size: 6
