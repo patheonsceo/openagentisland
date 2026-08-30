@@ -30,35 +30,40 @@ Singleton {
     // ── Automatic power profile ───────────────────────────────────
     readonly property var autoProfileCfg: Config.options?.battery?.autoProfile
 
-    function profileFromName(name) {
+    // Set through powerprofilesctl rather than PowerProfiles.profile.
+    // Quickshell's DBus property was observed reporting Balanced(1) while the
+    // daemon itself reported power-saver, so comparing against it skipped the
+    // write every time and the profile never actually changed.
+    function profileCliName(name) {
         switch (name) {
-        case "performance": return PowerProfile.Performance;
-        case "balanced": return PowerProfile.Balanced;
-        default: return PowerProfile.PowerSaver;
+        case "performance": return "performance";
+        case "powerSaver": return "power-saver";
+        case "balanced": return "balanced";
+        default: return "power-saver";
         }
     }
-
-    // NOT isPluggedIn: that is false whenever the pack reads Full on AC, which
-    // would have parked the machine in power-saver while plugged in. UPower
-    // reports the adapter itself.
-    readonly property bool runningOnBattery: UPower.onBattery
-    onRunningOnBatteryChanged: root.applyAutoProfile()
 
     function applyAutoProfile() {
         if (!(root.autoProfileCfg?.enable ?? false)) return;
         if (!root.available) return;
-        const want = root.profileFromName(root.runningOnBattery
+        const want = root.profileCliName(root.runningOnBattery
             ? (root.autoProfileCfg?.onBattery ?? "powerSaver")
             : (root.autoProfileCfg?.onAc ?? "balanced"));
-        if (PowerProfiles.profile === want) return;
-        PowerProfiles.profile = want;
+        // Written unconditionally: setting the profile it is already on is a
+        // no-op for the daemon, and it is the only way to be sure.
+        Quickshell.execDetached(["powerprofilesctl", "set", want]);
     }
 
-    // Applied at startup too, not just on the transition. That is the case
-    // that actually bites: a profile set days ago and never reconsidered,
-    // which is how this machine ended up idling at 92C on battery.
-    Component.onCompleted: {
-        if (root.autoProfileCfg?.applyOnStart ?? true) root.applyAutoProfile();
+    // NOT applied straight from Component.onCompleted. UPower has not populated
+    // its adapter state that early, so the first read says "on battery" even on
+    // mains — which parked this machine in power-saver while plugged in, and
+    // then never corrected itself because no plug/unplug transition followed.
+    Timer {
+        id: initialProfileTimer
+        interval: 4000
+        running: root.autoProfileCfg?.applyOnStart ?? true
+        repeat: false
+        onTriggered: root.applyAutoProfile()
     }
 
     property real energyRate: UPower.displayDevice.changeRate
