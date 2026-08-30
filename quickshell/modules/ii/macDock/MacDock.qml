@@ -97,10 +97,58 @@ Scope {
             implicitHeight: root.containerHeight + root.bottomGap
                 + root.iconSize * (root.peak - 1)   // magnification headroom
                 + 46                                 // name label + its gap
+                + (dockWindow.menuOpen ? dockMenu.implicitHeight + 12 : 0)
 
             // Only the container takes clicks; the rest of the strip stays
             // click-through so the desktop underneath keeps working.
-            mask: Region { item: hoverArea }
+            // While a menu is open the whole strip has to accept input, or the
+            // menu (which sits outside the container) gets no clicks and the
+            // click-away catcher never fires.
+            mask: dockWindow.menuOpen ? null : hoverRegion
+            Region { id: hoverRegion; item: hoverArea }
+
+            // ── Right-click menu state ────────────────────────────
+            // The window clips its contents and is only tall enough for the
+            // icons, so it has to grow to fit a menu. It is anchored to the
+            // bottom, so the extra height goes upward; exclusiveZone stays put
+            // so nothing on screen shifts when a menu opens.
+            // Drag-to-reorder. Only pinned apps move: the running-but-unpinned
+            // ones have no stored position to write back to.
+            property string dragAppId: ""
+            readonly property bool reordering: dockWindow.dragAppId.length > 0
+
+            function pinnedList() {
+                return (Config.options?.dock?.pinnedApps ?? []).slice();
+            }
+
+            // Moves `appId` to `to`, writing the whole list back. Returns true
+            // if anything actually changed.
+            function movePinned(appId, to) {
+                const list = dockWindow.pinnedList();
+                const from = list.indexOf(appId);
+                if (from < 0) return false;
+                const target = Math.max(0, Math.min(list.length - 1, to));
+                if (target === from) return false;
+                list.splice(from, 1);
+                list.splice(target, 0, appId);
+                Config.options.dock.pinnedApps = list;
+                return true;
+            }
+
+            property var menuFor: null
+            property real menuCenterX: 0
+            readonly property bool menuOpen: dockWindow.menuFor !== null
+            property string menuArmed: ""
+
+            function openMenu(item, centerX) {
+                dockWindow.menuArmed = "";
+                dockWindow.menuCenterX = centerX;
+                dockWindow.menuFor = item;
+            }
+            function closeMenu() {
+                dockWindow.menuFor = null;
+                dockWindow.menuArmed = "";
+            }
 
             // Pointer position along the dock, in container coordinates.
             // -1 relaxes every icon back to rest.
@@ -193,11 +241,177 @@ Scope {
                     // its own, so nothing here polls.
                     DockItem {
                         entry: null
+                        isTrash: true
                         iconName: trashModel.count > 0 ? "user-trash-full" : "user-trash"
                         label: trashModel.count > 0
                             ? Translation.tr("Trash — %1 items").arg(trashModel.count)
                             : Translation.tr("Trash — empty")
                         onActivated: Quickshell.execDetached(["xdg-open", "trash:///"])
+                    }
+                }
+            }
+
+            // ── Right-click menu ─────────────────────────────────
+            MouseArea {
+                anchors.fill: parent
+                visible: dockWindow.menuOpen
+                acceptedButtons: Qt.LeftButton | Qt.RightButton
+                z: 90
+                onClicked: dockWindow.closeMenu()
+            }
+
+            Rectangle {
+                id: dockMenu
+                visible: dockWindow.menuOpen
+                z: 100
+                radius: Appearance.rounding.small
+                color: Appearance.colors.colLayer0
+                border.width: 1
+                border.color: Appearance.colors.colLayer0Border
+
+                readonly property var item: dockWindow.menuFor
+                readonly property bool isTrash: dockMenu.item?.isTrash ?? false
+                readonly property bool isApp: (dockMenu.item?.entry ?? null) !== null
+                readonly property bool running: dockMenu.item?.isRunning ?? false
+                readonly property string appId: dockMenu.item?.appId ?? ""
+                readonly property bool pinned: dockMenu.item?.entry?.pinned ?? false
+
+                implicitWidth: 210
+                implicitHeight: menuCol.implicitHeight + 10
+
+                // Centred on the icon, kept inside the screen.
+                x: Math.max(8, Math.min(dockWindow.menuCenterX + hoverArea.x - width / 2,
+                                        dockWindow.width - width - 8))
+                y: hoverArea.y - height - 8
+
+                ColumnLayout {
+                    id: menuCol
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    anchors.margins: 5
+                    spacing: 0
+
+                    MenuRow {
+                        visible: dockMenu.isApp
+                        symbol: dockMenu.running ? "add" : "launch"
+                        label: dockMenu.running ? Translation.tr("New Window") : Translation.tr("Open")
+                        onTriggered: {
+                            DesktopEntries.heuristicLookup(dockMenu.appId)?.execute();
+                            dockWindow.closeMenu();
+                        }
+                    }
+                    MenuRow {
+                        visible: dockMenu.isApp && dockMenu.running
+                        symbol: "keyboard_arrow_up"
+                        label: Translation.tr("Show")
+                        onTriggered: {
+                            dockMenu.item?.toplevels?.[0]?.activate();
+                            dockWindow.closeMenu();
+                        }
+                    }
+                    MenuRow {
+                        visible: dockMenu.isApp
+                        symbol: dockMenu.pinned ? "keep_off" : "keep"
+                        label: dockMenu.pinned
+                            ? Translation.tr("Remove from Dock")
+                            : Translation.tr("Keep in Dock")
+                        onTriggered: {
+                            TaskbarApps.togglePin(dockMenu.appId);
+                            dockWindow.closeMenu();
+                        }
+                    }
+                    MenuRow {
+                        visible: dockMenu.isApp && dockMenu.running
+                        symbol: "close"
+                        label: Translation.tr("Quit")
+                        destructive: true
+                        armedKey: "quit"
+                        onTriggered: {
+                            const tls = dockMenu.item?.toplevels ?? [];
+                            for (let i = tls.length - 1; i >= 0; i--) tls[i].close();
+                            dockWindow.closeMenu();
+                        }
+                    }
+
+                    MenuRow {
+                        visible: dockMenu.isTrash
+                        symbol: "folder_open"
+                        label: Translation.tr("Open Trash")
+                        onTriggered: {
+                            Quickshell.execDetached(["xdg-open", "trash:///"]);
+                            dockWindow.closeMenu();
+                        }
+                    }
+                    MenuRow {
+                        visible: dockMenu.isTrash
+                        symbol: "delete_forever"
+                        label: Translation.tr("Empty Trash")
+                        destructive: true
+                        armedKey: "empty"
+                        onTriggered: {
+                            Quickshell.execDetached(["gio", "trash", "--empty"]);
+                            dockWindow.closeMenu();
+                        }
+                    }
+                }
+            }
+
+            // Destructive rows arm on the first click and fire on the second.
+            // Emptying the Trash and quitting an app are both unrecoverable
+            // from a stray click on a menu that opens under the pointer.
+            component MenuRow: MouseArea {
+                id: row
+                required property string symbol
+                required property string label
+                property bool destructive: false
+                property string armedKey: ""
+                signal triggered()
+
+                readonly property bool isArmed: row.destructive
+                    && dockWindow.menuArmed === row.armedKey
+
+                Layout.fillWidth: true
+                implicitHeight: row.visible ? 32 : 0
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+
+                onClicked: {
+                    if (row.destructive && !row.isArmed) {
+                        dockWindow.menuArmed = row.armedKey;
+                        return;
+                    }
+                    row.triggered();
+                }
+
+                Rectangle {
+                    anchors.fill: parent
+                    anchors.margins: 1
+                    radius: Appearance.rounding.verysmall
+                    color: row.isArmed ? Appearance.m3colors.m3errorContainer
+                        : row.containsMouse ? Appearance.colors.colLayer1Hover
+                        : "transparent"
+                }
+
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.leftMargin: 8
+                    anchors.rightMargin: 10
+                    spacing: 9
+
+                    MaterialSymbol {
+                        text: row.isArmed ? "warning" : row.symbol
+                        iconSize: 17
+                        color: row.isArmed ? Appearance.m3colors.m3onErrorContainer
+                            : Appearance.colors.colOnLayer1
+                    }
+                    StyledText {
+                        Layout.fillWidth: true
+                        text: row.isArmed ? Translation.tr("Click again to confirm") : row.label
+                        font.pixelSize: Appearance.font.pixelSize.smaller
+                        color: row.isArmed ? Appearance.m3colors.m3onErrorContainer
+                            : Appearance.colors.colOnLayer1
+                        elide: Text.ElideRight
                     }
                 }
             }
@@ -210,6 +424,7 @@ Scope {
                 // For items that are not applications and so have no appId to
                 // guess from — the Trash names its icon directly.
                 property string iconName: ""
+                property bool isTrash: false
                 property string label: ""
                 signal activated()
 
@@ -355,13 +570,59 @@ Scope {
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
                     acceptedButtons: Qt.LeftButton | Qt.MiddleButton | Qt.RightButton
+
+                    // Reordering, macOS-style: drag an icon sideways and it
+                    // changes places with its neighbours as you pass them.
+                    property real grabX: 0
+                    property bool didReorder: false
+                    readonly property bool canReorder: (item.entry?.pinned ?? false)
+
+                    onPressed: mouse => {
+                        itemArea.grabX = mouse.x;
+                        itemArea.didReorder = false;
+                    }
+
+                    onPositionChanged: mouse => {
+                        if (!itemArea.pressed || !itemArea.canReorder) return;
+                        if (!(itemArea.pressedButtons & Qt.LeftButton)) return;
+
+                        const pitch = root.iconSize + root.itemSpacing;
+                        const slots = Math.round((mouse.x - itemArea.grabX) / pitch);
+                        if (slots === 0) return;
+
+                        const list = dockWindow.pinnedList();
+                        const from = list.indexOf(item.appId);
+                        if (from < 0) return;
+                        if (dockWindow.movePinned(item.appId, from + slots)) {
+                            itemArea.didReorder = true;
+                            dockWindow.dragAppId = item.appId;
+                            // The row re-lays out under the pointer, so the
+                            // grab origin has to follow or every further pixel
+                            // would count from a position that no longer exists.
+                            itemArea.grabX = mouse.x;
+                        }
+                    }
+
+                    onReleased: {
+                        dockWindow.dragAppId = "";
+                    }
+
                     onClicked: mouse => {
-                        if (item.entry === null) {
-                            item.activated();
+                        // A drag that reordered is not also a click; without
+                        // this, letting go would launch or focus the app you
+                        // were only trying to move.
+                        if (itemArea.didReorder) {
+                            itemArea.didReorder = false;
                             return;
                         }
                         if (mouse.button === Qt.RightButton) {
-                            TaskbarApps.togglePin(item.appId);
+                            // Used to toggle the pin outright — a silent,
+                            // unlabelled, easily mis-aimed way to lose an icon.
+                            dockWindow.openMenu(item, item.centerX);
+                            return;
+                        }
+                        if (item.entry === null) {
+                            item.activated();
                             return;
                         }
                         // Middle click always opens a new window; left click focuses
