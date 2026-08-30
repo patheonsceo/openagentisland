@@ -28,6 +28,17 @@ Item {
     // The host window raises keyboard focus only while we actually need typing.
     readonly property bool inputActive: addField.activeFocus || root.pickerTask !== null
 
+    // Raised when the user backs out of typing, so the host can hand the
+    // keyboard back to whatever app was using it.
+    signal dismissed()
+
+    // True for the whole of a drag or resize gesture. The host drops its input
+    // mask while this holds — a gesture that leaves the card's own bounds must
+    // keep receiving motion, and the resize grips sit right on the edge.
+    property bool dragging: false
+    property bool resizing: false
+    readonly property bool interacting: root.dragging || root.resizing
+
     // Needed to lay the frost's wallpaper copy out exactly as the real one.
     property int screenWidth: 1920
     property int screenHeight: 1080
@@ -42,8 +53,23 @@ Item {
     // itself from its children, the card takes that plus padding. Anchoring the
     // column to fill the card instead would put height on both sides of the same
     // binding and QML would resolve it to zero.
-    implicitWidth: root.config.width
+    // While a resize gesture is live the geometry comes from these, not from
+    // config. Writing config on every motion event pushed the entire options
+    // object through JsonAdapter serialisation and restarted the debounced file
+    // write dozens of times a second — which is what made resizing feel like it
+    // was fighting back. Config is written once, on release.
+    property real pendingWidth: -1
+    property real pendingListHeight: -1
+
+    implicitWidth: root.pendingWidth >= 0 ? root.pendingWidth : root.config.width
     implicitHeight: contentColumn.implicitHeight + root.padding * 2
+
+    // Single place where a finished gesture becomes a stored position. Grid
+    // snapping belongs here when it lands, and nowhere else.
+    function commitPosition(x, y) {
+        root.config.x = Math.round(Math.max(0, Math.min(x, root.screenWidth - root.width)));
+        root.config.y = Math.round(Math.max(0, Math.min(y, root.screenHeight - root.height)));
+    }
 
     // Resizing vertically changes the height of the SCROLLABLE task area, not
     // the whole card. The header, Completed section and add-row keep their
@@ -55,10 +81,12 @@ Item {
     readonly property real naturalListHeight: root.unfinished.length > 0
         ? taskColumn.implicitHeight
         : 130
-    readonly property bool listIsClamped: root.config.listHeight > 0
-    readonly property real effectiveListHeight: root.listIsClamped
-        ? Math.max(40, root.config.listHeight)
-        : root.naturalListHeight
+    readonly property bool listIsClamped: root.pendingListHeight >= 0 || root.config.listHeight > 0
+    readonly property real effectiveListHeight: root.pendingListHeight >= 0
+        ? root.pendingListHeight
+        : (root.config.listHeight > 0
+            ? Math.max(40, root.config.listHeight)
+            : root.naturalListHeight)
 
     function startTask(task) {
         root.pickerTask = task;
@@ -91,27 +119,59 @@ Item {
         // own mouse areas, so making the whole card draggable would fight with
         // checkbox and start clicks. Sits behind the content, not inside the
         // layout — anchors on a layout-managed item are undefined behaviour.
+        // Right-click opens the settings menu. Declared first so it sits BEHIND
+        // the dragger and accepts only the right button; left presses are not
+        // accepted here and fall straight through to the dragger above, so
+        // neither area has to know the other exists.
+        MouseArea {
+            anchors.fill: dragArea
+            acceptedButtons: Qt.RightButton
+            onPressed: mouse => {
+                root.menuPos = Qt.point(mouse.x, mouse.y);
+                root.menuOpen = true;
+            }
+        }
+
         MouseArea {
             id: dragArea
             anchors.top: parent.top
             anchors.left: parent.left
             anchors.right: parent.right
             height: 56
-            acceptedButtons: Qt.LeftButton | Qt.RightButton
-            cursorShape: containsPress ? Qt.ClosedHandCursor : Qt.OpenHandCursor
-            // Left drags, right opens settings. Rows keep their own right-click
-            // (delete), so the menu lives on the header strip rather than the
-            // whole card.
-            drag.target: pressedButtons & Qt.LeftButton ? root : null
+            acceptedButtons: Qt.LeftButton
+            cursorShape: drag.active ? Qt.ClosedHandCursor : Qt.OpenHandCursor
+
+            // `drag.target` used to be bound to `pressedButtons`, which is only
+            // set at the END of press handling — so the target was still null
+            // while the press was being processed.
+            drag.target: root
             drag.axis: Drag.XAndYAxis
-            onPressed: mouse => {
-                if (mouse.button !== Qt.RightButton) return;
-                root.menuPos = Qt.point(mouse.x, mouse.y);
-                root.menuOpen = true;
-            }
-            onReleased: {
-                root.config.x = Math.round(root.x);
-                root.config.y = Math.round(root.y);
+
+            // The two lines that actually fix "drag it fast and it drops behind".
+            // Qt defaults `smoothed` to true, which moves the target only once
+            // the threshold is crossed and then keeps it offset by however far
+            // the pointer travelled in that first motion event. Move slowly and
+            // that is a few pixels; flick it and the card trails the cursor by
+            // that gap for the rest of the gesture. Straight tracking instead.
+            drag.threshold: 0
+            drag.smoothed: false
+
+            // Bound during the drag rather than clamped after it, so the card
+            // slides along the screen edge instead of being yanked back on
+            // release.
+            drag.minimumX: 0
+            drag.maximumX: Math.max(0, root.screenWidth - root.width)
+            drag.minimumY: 0
+            drag.maximumY: Math.max(0, root.screenHeight - root.height)
+
+            onPressed: root.dragging = true
+            onReleased: dragArea.finish()
+            onCanceled: dragArea.finish()
+
+            function finish() {
+                if (!root.dragging) return;
+                root.dragging = false;
+                root.commitPosition(root.x, root.y);
             }
         }
 
@@ -430,6 +490,7 @@ Item {
                     Keys.onEscapePressed: {
                         text = "";
                         focus = false;
+                        root.dismissed();
                     }
 
                     StyledText {
@@ -557,6 +618,7 @@ Item {
             grip.startWidth = root.width;
             grip.startList = root.effectiveListHeight;
             grip.startGlobal = grip.mapToGlobal(mouse.x, mouse.y);
+            root.resizing = true;
         }
 
         onPositionChanged: mouse => {
@@ -565,19 +627,30 @@ Item {
             const dx = now.x - grip.startGlobal.x;
             const dy = now.y - grip.startGlobal.y;
 
+            // Into the pending values, not into config — see the note on
+            // pendingWidth for what writing config per motion event cost.
             if (grip.edge !== "bottom") {
-                root.config.width = Math.max(root.config.minWidth,
+                root.pendingWidth = Math.max(root.config.minWidth,
                     Math.min(root.config.maxWidth, grip.startWidth + dx));
             }
             if (grip.edge !== "right") {
-                root.config.listHeight = Math.max(40,
+                root.pendingListHeight = Math.max(40,
                     Math.min(900, grip.startList + dy));
             }
         }
 
-        onReleased: {
-            root.config.width = Math.round(root.config.width);
-            root.config.listHeight = Math.round(root.config.listHeight);
+        onReleased: grip.finish()
+        onCanceled: grip.finish()
+
+        function finish() {
+            if (!root.resizing) return;
+            root.resizing = false;
+            if (root.pendingWidth >= 0)
+                root.config.width = Math.round(root.pendingWidth);
+            if (root.pendingListHeight >= 0)
+                root.config.listHeight = Math.round(root.pendingListHeight);
+            root.pendingWidth = -1;
+            root.pendingListHeight = -1;
         }
 
         // Corner gets a visible grip; the edges stay invisible so the card keeps

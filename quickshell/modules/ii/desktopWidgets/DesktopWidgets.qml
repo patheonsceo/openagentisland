@@ -52,11 +52,35 @@ Scope {
             exclusionMode: ExclusionMode.Ignore
             WlrLayershell.namespace: "quickshell:desktopWidgets"
             WlrLayershell.layer: WlrLayer.Bottom
-            // Only ask for keys while a field is actually focused.
-            WlrLayershell.keyboardFocus: todoCard.inputActive
-                ? WlrKeyboardFocus.OnDemand
-                : WlrKeyboardFocus.None
+
+            // OnDemand means "grant this surface keyboard focus when the user
+            // clicks it", so it has to already be set when the click lands.
+            // Raising it in response to a field taking focus was circular: the
+            // surface was still None at the moment of the click, the compositor
+            // had nothing to grant, and Qt's caret blinked away in a field that
+            // could not receive a single keystroke until you clicked a SECOND
+            // time. OnDemand does not steal focus — it only accepts it on click.
+            WlrLayershell.keyboardFocus: widgetWindow.releasingFocus
+                ? WlrKeyboardFocus.None
+                : WlrKeyboardFocus.OnDemand
             color: "transparent"
+
+            // Backing out of a field should return the keyboard to whatever app
+            // was using it. Dropping to None does that; it goes straight back to
+            // OnDemand so the next click is not stuck behind the same race.
+            property bool releasingFocus: false
+            Timer {
+                id: focusReleaseTimer
+                interval: 120
+                onTriggered: widgetWindow.releasingFocus = false
+            }
+            Connections {
+                target: todoCard
+                function onDismissed() {
+                    widgetWindow.releasingFocus = true;
+                    focusReleaseTimer.restart();
+                }
+            }
 
             anchors {
                 top: true
@@ -69,7 +93,11 @@ Scope {
             // EXCEPT while the settings menu is open, when the whole surface has to
             // accept input or the menu (which extends past the card) gets no clicks
             // at all and the click-away catcher never fires.
-            mask: todoCard.menuOpen ? null : cardOnlyRegion
+            // Also dropped for the whole of a drag or resize: those gestures
+            // routinely take the pointer outside the card's own bounds, and the
+            // input region follows the card, so a masked surface can lose the
+            // motion events half way through a flick.
+            mask: (todoCard.menuOpen || todoCard.interacting) ? null : cardOnlyRegion
             Region { id: cardOnlyRegion; item: todoCard }
 
             function restorePosition() {
