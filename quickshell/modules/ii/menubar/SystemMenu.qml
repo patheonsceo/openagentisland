@@ -4,6 +4,9 @@ import qs
 import qs.services
 import qs.modules.common
 import qs.modules.common.widgets
+// Session lives here. Without this import every Session.* call in this file
+// raised a silent ReferenceError and the row simply did nothing.
+import qs.modules.common.functions
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
