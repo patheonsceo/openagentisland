@@ -97,9 +97,11 @@ Item {
             anchors.leftMargin: 2
             anchors.rightMargin: 2
             radius: Appearance.rounding.verysmall
-            color: row.containsMouse ? Appearance.colors.colLayer1Hover : "transparent"
+            color: row.containsMouse ? Qt.rgba(1, 1, 1, 0.075) : "transparent"
+            // Slower than elementMoveFast: a highlight that snaps draws the eye
+            // to the transition rather than to the row.
             Behavior on color {
-                animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(this)
+                ColorAnimation { duration: 160; easing.type: Easing.OutQuad }
             }
         }
 

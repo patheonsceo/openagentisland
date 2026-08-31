@@ -436,11 +436,14 @@ Scope {
         Rectangle {
             anchors.fill: parent
             radius: Appearance.rounding.verysmall
-            color: title.isOpen ? Appearance.colors.colPrimary
-                : titleArea.containsMouse ? Appearance.colors.colLayer1Hover
+            // A translucent wash rather than the accent fill. A menu title is a
+            // place you are, not an alert — the accent pill shouted, and against
+            // a dark bar it was the loudest thing on screen.
+            color: title.isOpen ? Qt.rgba(1, 1, 1, 0.15)
+                : titleArea.containsMouse ? Qt.rgba(1, 1, 1, 0.07)
                 : "transparent"
             Behavior on color {
-                animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(this)
+                ColorAnimation { duration: 160; easing.type: Easing.OutQuad }
             }
         }
 
@@ -449,7 +452,7 @@ Scope {
             visible: title.symbol.length > 0
             text: title.symbol
             iconSize: 17
-            color: title.isOpen ? Appearance.colors.colOnPrimary : Appearance.colors.colOnLayer0
+            color: Appearance.colors.colOnLayer0
         }
 
         StyledText {
@@ -459,7 +462,7 @@ Scope {
             text: title.label
             font.pixelSize: Appearance.font.pixelSize.smaller
             font.weight: Font.DemiBold
-            color: title.isOpen ? Appearance.colors.colOnPrimary : Appearance.colors.colOnLayer0
+            color: Appearance.colors.colOnLayer0
         }
 
         MouseArea {
