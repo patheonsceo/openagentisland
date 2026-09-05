@@ -26,7 +26,34 @@ Scope {
 
     // Only the focused monitor gets the take-over; the pill likewise. Showing
     // either on all three would be three countdowns of the same session.
-    readonly property string activeScreenName: Hyprland.focusedMonitor?.name ?? ""
+    // Pinned to the monitor the session started on. Binding straight to
+    // Hyprland.focusedMonitor meant the overlay hopped displays every time the
+    // cursor did, which is the opposite of what a focus timer is for.
+    readonly property string pinnedScreenName: Persistent.states.timer.focus.screenName ?? ""
+
+    readonly property string activeScreenName: {
+        const pinned = root.pinnedScreenName;
+        // Fall back if that monitor has since been unplugged, or the overlay
+        // would have nowhere to live.
+        if (pinned.length > 0 && Quickshell.screens.some(s => s.name === pinned))
+            return pinned;
+        return Hyprland.focusedMonitor?.name ?? "";
+    }
+
+    function pinCurrentScreen() {
+        if (!FocusTimer.active) return;
+        if ((Persistent.states.timer.focus.screenName ?? "").length > 0) return;
+        Persistent.states.timer.focus.screenName = Hyprland.focusedMonitor?.name ?? "";
+    }
+
+    // Pin when a session starts, and also at startup — the countdown is
+    // wall-clock based and survives a shell reload, so it can already be
+    // running with nothing pinned yet.
+    Connections {
+        target: FocusTimer
+        function onActiveChanged() { root.pinCurrentScreen(); }
+    }
+    Component.onCompleted: root.pinCurrentScreen()
 
 
     // ── Maximised ────────────────────────────────────────────────

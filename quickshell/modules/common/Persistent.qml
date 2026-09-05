@@ -83,6 +83,16 @@ Singleton {
                 property bool inhibit: false
             }
 
+            property JsonObject regionSelector: JsonObject {
+                // Last snipped region, restored on the next open. One region only, tied to
+                // the screen it was taken on, so exactly one overlay can ever restore it.
+                property string lastRegionScreen: ""
+                property real lastRegionX: 0
+                property real lastRegionY: 0
+                property real lastRegionWidth: 0
+                property real lastRegionHeight: 0
+            }
+
             property JsonObject overlay: JsonObject {
                 property list<string> open: ["crosshair", "recorder", "volumeMixer", "resources"]
                 property JsonObject crosshair: JsonObject {
@@ -169,6 +179,10 @@ Singleton {
                     property int pausedLeft: 0   // seconds remaining when paused
                     property real pillX: 60      // minimized pill position, remembered between sessions
                     property real pillY: 60
+                    // Monitor the session was started on. The overlay used to
+                    // follow Hyprland's focused monitor, so it chased the cursor
+                    // between displays mid-countdown.
+                    property string screenName: ""
                 }
             }
         }

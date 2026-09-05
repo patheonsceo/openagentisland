@@ -75,6 +75,9 @@ Singleton {
         state.pausedLeft = 0;
         state.minimized = false;
         state.running = true;
+        // Cleared here, not set — the overlay knows which monitor is focused
+        // and pins it on the first frame it is shown.
+        state.screenName = "";
         Todo.rememberDuration(taskId, Math.round(seconds));
         root.refresh();
     }
