@@ -11,7 +11,7 @@
   "appearance": {
     "default": "dark"
   },
-  "favicon": "/screenshots/desktop.png",
+  "favicon": "/favicon.svg",
   "navigation": {
     "tabs": [
       {
@@ -19,19 +19,35 @@
         "groups": [
           {
             "group": "Getting started",
-            "pages": ["index", "requirements", "install"]
+            "pages": [
+              "index",
+              "requirements",
+              "install"
+            ]
           },
           {
             "group": "The desktop",
-            "pages": ["notch", "dock-and-widgets", "keybinds"]
+            "pages": [
+              "notch",
+              "dock-and-widgets",
+              "keybinds"
+            ]
           },
           {
             "group": "Agents",
-            "pages": ["agent-island", "voice-dictation"]
+            "pages": [
+              "agent-island",
+              "voice-dictation"
+            ]
           },
           {
             "group": "Reference",
-            "pages": ["what-it-installs", "uninstall", "troubleshooting", "development"]
+            "pages": [
+              "what-it-installs",
+              "uninstall",
+              "troubleshooting",
+              "development"
+            ]
           }
         ]
       }
@@ -49,5 +65,9 @@
     "socials": {
       "github": "https://github.com/patheonsceo/openagentisland"
     }
+  },
+  "logo": {
+    "light": "/favicon.svg",
+    "dark": "/favicon.svg"
   }
 }
