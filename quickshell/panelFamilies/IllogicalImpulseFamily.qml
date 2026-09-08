@@ -6,6 +6,7 @@ import qs.modules.ii.background
 import qs.modules.ii.bar
 import qs.modules.ii.island
 import qs.modules.ii.cheatsheet
+import qs.modules.ii.desktopIcons
 import qs.modules.ii.desktopWidgets
 import qs.modules.ii.dock
 import qs.modules.ii.focusTimer
@@ -40,6 +41,7 @@ Scope {
     PanelLoader { component: Background {} }
     PanelLoader { component: Cheatsheet {} }
     PanelLoader { extraCondition: Config.options.background.widgets.todo.enable; component: DesktopWidgets {} }
+    PanelLoader { component: DesktopIcons {} }
     PanelLoader { extraCondition: Config.options.dock.enable && !Config.options.dock.macStyleDock; component: Dock {} }
     PanelLoader { extraCondition: Config.options.dock.enable && Config.options.dock.macStyleDock; component: MacDock {} }
     PanelLoader { component: FocusOverlay {} }

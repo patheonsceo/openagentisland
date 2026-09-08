@@ -70,6 +70,16 @@ Scope {
             readonly property real screenWidth: boardWindow.width
             readonly property real screenHeight: boardWindow.height
 
+            // Publish widget rects for the icon board. The two are separate
+            // layer surfaces, so DesktopIcons cannot see widgetItems directly;
+            // without this an icon would happily sit underneath a widget.
+            // QML tracks the w.x/w.y/w.width reads below, so this re-evaluates
+            // whenever a widget is moved or resized.
+            readonly property var publishedRects: boardWindow.widgetItems
+                .filter(w => w)
+                .map(w => ({ x: w.x, y: w.y, width: w.width, height: w.height }))
+            onPublishedRectsChanged: DesktopLayout.publishRects(boardWindow.publishedRects)
+
             property var widgetItems: []
             function register(w) {
                 if (boardWindow.widgetItems.indexOf(w) < 0)
