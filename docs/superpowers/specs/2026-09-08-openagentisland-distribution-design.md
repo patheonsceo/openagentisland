@@ -216,7 +216,7 @@ it rather than relying on memory.
    `quickshell/openagentisland` linked to the *worktree's* QML. The nested shell
    cannot read or write the live `~/.config`. Same technique already proven for
    the frosted Nautilus setup.
-3. Launches nested Hyprland with `dev/hypr-nested.conf` (moved in from
+3. Launches nested Hyprland with `dev/hypr-nested.lua` (moved in from
    `~/.config/hypr-nested/`): wildcard monitor, animations and blur off,
    `exec-once = qs -c openagentisland`.
 4. Pins the nested window to **workspace 1** at a fixed size, so captures are

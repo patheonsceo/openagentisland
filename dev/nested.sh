@@ -80,8 +80,22 @@ ok "quickshell -> $(realpath --relative-to="$REPO" "$WT")/quickshell"
 
 # Seed the shell's settings from the repo's shipped overlay, so the nested
 # session shows what a new user would get rather than this machine's tuning.
-[[ -f "$CONF/illogical-impulse/config.json" ]] \
-    || cp "$WT/config/illogical-impulse/config.json" "$CONF/illogical-impulse/config.json"
+if [[ ! -f "$CONF/illogical-impulse/config.json" ]]; then
+    # The shipped overlay carries no wallpaperPath on purpose — that value
+    # belongs to a machine, not to the rice. The nested session needs one
+    # anyway or it renders onto black, so point it at a vendored wallpaper.
+    WALL="$(find "$WT/assets/wallpapers" -maxdepth 1 -type f \( -name '*.jpg' -o -name '*.png' -o -name '*.webp' \) | sort | head -1)"
+    python3 - "$WT/config/illogical-impulse/config.json" \
+              "$CONF/illogical-impulse/config.json" "$WALL" <<'SEED'
+import json, sys
+src, dst, wall = sys.argv[1:4]
+cfg = json.load(open(src))
+if wall:
+    cfg.setdefault("background", {})["wallpaperPath"] = wall
+json.dump(cfg, open(dst, "w"), indent=2)
+SEED
+    ok "seeded shell config${WALL:+ (wallpaper: $(basename "$WALL"))}"
+fi
 
 # Mark the shell as already greeted. Without this the first-run welcome dialog
 # covers the whole desktop on every single launch, because the shadow state
@@ -116,7 +130,7 @@ env -u HYPRLAND_INSTANCE_SIGNATURE \
     XDG_CACHE_HOME="$SHADOW/cache" \
     WLR_BACKENDS=wayland \
     WLR_NO_HARDWARE_CURSORS=1 \
-    Hyprland --config "$WT/dev/hypr-nested.conf" >"$LOG" 2>&1 &
+    Hyprland --config "$WT/dev/hypr-nested.lua" >"$LOG" 2>&1 &
 
 NESTED_PID=$!
 echo "$NESTED_PID" > "$STATE/pid"

@@ -77,7 +77,7 @@ plan in `docs/superpowers/plans/2026-09-08-distribution-rework.md`.
   *and* the block; the replace path added only the block, so run one and run
   two differed by a blank line. Found by a test written before the port.
 - **A worktree only contains committed files.** `dev/nested.sh` failed the
-  first time because `dev/hypr-nested.conf` was still untracked. This is
+  first time because `dev/hypr-nested.lua` was still untracked. This is
   correct behaviour and confirms the workflow: develop *inside* the worktree
   and let Quickshell hot-reload.
 

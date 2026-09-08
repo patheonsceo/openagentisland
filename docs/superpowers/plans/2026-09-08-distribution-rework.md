@@ -38,7 +38,7 @@
 | `dev/test-install.sh` | Round-trip install/uninstall against a scratch `$HOME`. |
 | `dev/nested.sh` | Worktree + shadow XDG + nested Hyprland on workspace 1. |
 | `dev/shot.sh` | Deterministic capture of the nested window. |
-| `dev/hypr-nested.conf` | Nested compositor config, moved in from `~/.config/hypr-nested/`. |
+| `dev/hypr-nested.lua` | Nested compositor config, moved in from `~/.config/hypr-nested/`. |
 
 `paths.py` and `textblock.py` are separate from `engine.py` because they are pure and are the parts most worth testing exhaustively. Keeping them out of the module that touches the filesystem means their tests need no scratch directory and no mocking.
 
@@ -655,7 +655,7 @@ git commit -m "Vendor the fonts, icons, theme and configs the rice needs"
 ### Task 7: The nested development harness
 
 **Files:**
-- Create: `dev/hypr-nested.conf`, `dev/nested.sh`, `dev/shot.sh`
+- Create: `dev/hypr-nested.lua`, `dev/nested.sh`, `dev/shot.sh`
 
 The nested session must be unable to read or write the live `~/.config`. That is what makes it safe to run against a worktree while the real desktop keeps running.
 
@@ -663,7 +663,7 @@ The nested session must be unable to read or write the live `~/.config`. That is
 
 ```bash
 mkdir -p dev
-cp ~/.config/hypr-nested/hyprland.conf dev/hypr-nested.conf
+cp ~/.config/hypr-nested/hyprland.conf dev/hypr-nested.lua
 ```
 
 - [ ] **Step 2: Write `dev/nested.sh`**
