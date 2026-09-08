@@ -152,11 +152,92 @@ def test_textblock():
           "before" in inject(doc, "new", B, E) and "after" in inject(doc, "new", B, E))
 
 
+# ── manifest ──────────────────────────────────────────────────────────
+import tempfile  # noqa: E402
+
+from manifest import MODES, ManifestError, load, select  # noqa: E402
+
+
+def _write(tmp, text):
+    p = os.path.join(tmp, "m.toml")
+    with open(p, "w") as fh:
+        fh.write(text)
+    return p
+
+
+def _rejects(tmp, text, needle, label):
+    try:
+        load(_write(tmp, text))
+        check(label, False)
+    except ManifestError as exc:
+        check(label, needle in str(exc))
+
+
+def test_manifest():
+    print("manifest")
+    with tempfile.TemporaryDirectory() as tmp:
+        good = _write(
+            tmp,
+            """
+[[artifact]]
+id = "shell"
+src = "quickshell"
+dest = "~/.config/quickshell/openagentisland"
+mode = "symlink"
+profile = ["island", "full"]
+
+[[artifact]]
+id = "fonts"
+src = "assets/fonts"
+dest = "~/.local/share/fonts"
+mode = "copy"
+post = "fc-cache -f"
+""",
+        )
+        arts = load(good)
+        check("loads both rows", len(arts) == 2)
+        check("id preserved", arts[0].id == "shell")
+        check("profile default is full", arts[1].profile == ["full"])
+        check("post captured", arts[1].post == "fc-cache -f")
+        check("distro defaults empty", arts[0].distro == [])
+        check("keys default empty", arts[0].keys == [])
+
+        check("select island", [a.id for a in select(arts, "island")] == ["shell"])
+        check("select full", [a.id for a in select(arts, "full")] == ["shell", "fonts"])
+        check("select unknown profile is empty", select(arts, "nope") == [])
+
+        _rejects(tmp,
+                 '[[artifact]]\nid="x"\nsrc="a"\ndest="~/a"\nmode="copy"\n'
+                 '[[artifact]]\nid="x"\nsrc="b"\ndest="~/b"\nmode="copy"\n',
+                 "duplicate", "duplicate id rejected")
+
+        _rejects(tmp, '[[artifact]]\nid="x"\nsrc="a"\ndest="~/a"\nmode="teleport"\n',
+                 "teleport", "unknown mode rejected")
+
+        _rejects(tmp, '[[artifact]]\nid="x"\nmode="copy"\n',
+                 "src", "missing field rejected")
+
+        _rejects(tmp, '[[artifact]]\nid="c"\nsrc="a"\ndest="~/a"\nmode="merge-json"\n',
+                 "keys", "merge-json without keys rejected")
+
+        _rejects(tmp, '[[artifact]]\nid="c"\nsrc="a"\ndest="~/a"\nmode="merge-json"\nkeys=[]\n',
+                 "keys", "merge-json with empty keys rejected")
+
+        _rejects(tmp, '[[artifact]]\nid="x"\nsrc="a"\ndest="~/a"\nmode="copy"\nwat="?"\n',
+                 "wat", "unknown field rejected")
+
+        check("empty manifest loads to nothing", load(_write(tmp, "")) == [])
+
+    check("modes are the documented six",
+          MODES == {"symlink", "copy", "inject", "setting", "extract", "merge-json"})
+
+
 if __name__ == "__main__":
     test_paths()
     test_expand()
     test_merge()
     test_textblock()
+    test_manifest()
     print()
     if FAILED:
         print(f"FAILED ({len(FAILED)}): {', '.join(FAILED)}")

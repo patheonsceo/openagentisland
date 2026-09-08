@@ -1,0 +1,191 @@
+# Every installable artifact, one row each.
+#
+# install/engine.py walks this table. Install, --dry-run, --uninstall and
+# --status all derive from it, so they cannot disagree with each other, and
+# adding a config layer is a row here rather than new imperative code in three
+# places.
+#
+# Fields:
+#   id       stable identifier, used by --status and the round-trip test
+#   src      path within the repo
+#   dest     destination; a LEADING ~ expands against $HOME. For mode
+#            "setting" with the gsettings backend, dest is "gsettings:".
+#   mode     symlink | copy | inject | setting | extract | merge-json
+#   profile  which profiles include this row; defaults to ["full"]
+#   post     shell command to run once the row has landed
+#   keys     merge-json only: the key paths this rice owns and may write
+#   distro   reserved; empty means every distro
+#
+# Profiles:
+#   island   the notch and shell alone, for someone who already has a rice
+#   full     the whole desktop
+
+# ── the shell ─────────────────────────────────────────────────────────
+
+[[artifact]]
+id      = "shell"
+src     = "quickshell"
+dest    = "~/.config/quickshell/openagentisland"
+mode    = "symlink"
+profile = ["island", "full"]
+# quickshell/ stays at the REPO ROOT rather than moving under config/, which
+# would be tidier. The live symlink points here and tracks main, so moving the
+# directory would break the running desktop on the next pull. See the spec, §3.
+
+[[artifact]]
+id      = "hypr-qsconfig"
+src     = "install/blocks/hypr-qsconfig.lua"
+dest    = "~/.config/hypr/hyprland/variables.lua"
+mode    = "inject"
+profile = ["island", "full"]
+# Points end-4 at this Quickshell config. Injected between markers rather than
+# copied, because variables.lua is end-4's file and their updater rewrites it.
+
+# ── fonts, icons, theme ───────────────────────────────────────────────
+
+[[artifact]]
+id      = "fonts"
+src     = "assets/fonts"
+dest    = "~/.local/share/fonts"
+mode    = "copy"
+post    = "fc-cache -f"
+# Three families, and only three: Google Sans Flex drives the shell UI, SF Pro
+# Display the GTK/system font, Liga SF Mono the terminal. Nothing else in the
+# rice references a font.
+
+[[artifact]]
+id   = "icons"
+src  = "assets/icons/WhiteSur.tar.zst"
+dest = "~/.local/share/icons"
+mode = "extract"
+# A tarball rather than loose files: the theme is roughly 60,000 small files,
+# and committing them loose slows clone and status for every user, forever, to
+# save one tar call at install time.
+
+[[artifact]]
+id   = "theme-matugenglass"
+src  = "assets/themes/MatugenGlass"
+dest = "~/.local/share/themes/MatugenGlass"
+mode = "copy"
+
+[[artifact]]
+id   = "wallpapers"
+src  = "assets/wallpapers"
+dest = "~/Pictures/Wallpapers"
+mode = "copy"
+
+# ── window decoration and traffic lights ──────────────────────────────
+
+[[artifact]]
+id   = "gtk3-settings"
+src  = "install/settings/gtk.ini"
+dest = "~/.config/gtk-3.0/settings.ini"
+mode = "setting"
+
+[[artifact]]
+id   = "gtk4-settings"
+src  = "install/settings/gtk.ini"
+dest = "~/.config/gtk-4.0/settings.ini"
+mode = "setting"
+
+[[artifact]]
+id   = "kdeglobals"
+src  = "install/settings/kdeglobals.ini"
+dest = "~/.config/kdeglobals"
+mode = "setting"
+
+[[artifact]]
+id   = "gsettings-wm"
+src  = "install/settings/gsettings-wm.ini"
+dest = "gsettings:"
+mode = "setting"
+
+[[artifact]]
+id   = "gsettings-interface"
+src  = "install/settings/gsettings-interface.ini"
+dest = "gsettings:"
+mode = "setting"
+
+[[artifact]]
+id   = "traffic-lights-gtk3"
+src  = "install/traffic-lights/gtk-3.0.css"
+dest = "~/.config/matugen/templates/gtk-3.0/gtk.css"
+mode = "inject"
+# Into the matugen TEMPLATE, not ~/.config/gtk-3.0/gtk.css. That file is
+# generated output, rewritten on every wallpaper change; anything written there
+# is lost the first time the wallpaper changes.
+
+[[artifact]]
+id   = "traffic-lights-gtk4"
+src  = "install/traffic-lights/gtk-4.0.css"
+dest = "~/.config/matugen/templates/gtk-4.0/gtk.css"
+mode = "inject"
+
+# ── Hyprland ──────────────────────────────────────────────────────────
+
+[[artifact]]
+id   = "hypr-custom"
+src  = "config/hypr/custom"
+dest = "~/.config/hypr/custom"
+mode = "copy"
+# Keybinds, window rules, exec-once entries and the traffic-light dispatch
+# scripts. end-4 owns hypr/hyprland/; hypr/custom/ is the user's, so a whole
+# copy is safe here in a way it would not be one directory up.
+
+# ── terminal and launcher ─────────────────────────────────────────────
+
+[[artifact]]
+id   = "kitty"
+src  = "config/kitty"
+dest = "~/.config/kitty"
+mode = "copy"
+
+[[artifact]]
+id   = "fish"
+src  = "config/fish"
+dest = "~/.config/fish"
+mode = "copy"
+
+[[artifact]]
+id   = "foot"
+src  = "config/foot"
+dest = "~/.config/foot"
+mode = "copy"
+
+[[artifact]]
+id   = "fuzzel"
+src  = "config/fuzzel"
+dest = "~/.config/fuzzel"
+mode = "copy"
+
+[[artifact]]
+id   = "nautilus-glass"
+src  = "config/nautilus-glass"
+dest = "~/.config/nautilus-glass"
+mode = "copy"
+# A shadow XDG_CONFIG_HOME for Nautilus. GTK4 user CSS beats GTK_THEME, so
+# per-app GTK4 theming needs config isolation rather than a theme setting.
+
+# ── shell settings ────────────────────────────────────────────────────
+
+[[artifact]]
+id   = "ii-config"
+src  = "config/illogical-impulse/config.json"
+dest = "~/.config/illogical-impulse/config.json"
+mode = "merge-json"
+keys = [
+    "appearance.fakeScreenRounding",
+    "appearance.transparency",
+    "background.widgets",
+    "bar.bottom",
+    "bar.cornerStyle",
+    "dock.enable",
+    "dock.macStyleDock",
+    "dock.pinnedApps",
+    "background.wallpaperMode",
+    "battery.keepAwakeWhenPluggedIn",
+    "regionSelector.rememberLastRegion",
+]
+# Only these paths. config.json is 17KB of rice settings mixed with end-4
+# defaults and values that belong to the machine — wallpaper path, monitor
+# layout, personal preferences. Writing the whole file destroys all of it.
