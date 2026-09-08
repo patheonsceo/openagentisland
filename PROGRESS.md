@@ -76,6 +76,16 @@ plan in `docs/superpowers/plans/2026-09-08-distribution-rework.md`.
 - **Fenced injection was not byte-idempotent.** The insert path added a newline
   *and* the block; the replace path added only the block, so run one and run
   two differed by a blank line. Found by a test written before the port.
+- **MDX is not Markdown.** `<https://console.groq.com>` is a valid Markdown
+  autolink and an MDX parse error — `<` starts JSX. `npx mint broken-links`
+  catches it; the Mintlify build would otherwise have failed on push. Worth
+  running before every docs push.
+- **Hyprland `.conf` is deprecated** — 0.57 removes it, and 0.56 says so across
+  the top of every screenshot. Converting the nested config to Lua turned up
+  three things: an invented `misc` key is fatal, key strings join with `+` not
+  commas (a bad one drops the whole config into emergency mode), and
+  `exec-once` becomes `hl.on("hyprland.start", function() ... end)` — omitting
+  it leaves a compositor with no shell in it.
 - **A worktree only contains committed files.** `dev/nested.sh` failed the
   first time because `dev/hypr-nested.lua` was still untracked. This is
   correct behaviour and confirms the workflow: develop *inside* the worktree
