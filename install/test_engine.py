@@ -66,9 +66,58 @@ def test_expand():
     check("relative untouched", expand_dest("rel/path", "/home/u") == "rel/path")
 
 
+# ── jsonmerge ─────────────────────────────────────────────────────────
+from jsonmerge import merge_owned  # noqa: E402
+
+
+def test_merge():
+    print("merge_owned")
+    base = {
+        "background": {"wallpaperPath": "/home/them/pic.jpg", "mode": "fill"},
+        "dock": {"enable": False},
+        "personal": {"name": "them"},
+    }
+    overlay = {
+        "background": {"wallpaperPath": "/repo/wall.jpg", "mode": "fit"},
+        "dock": {"enable": True},
+        "personal": {"name": "me"},
+    }
+
+    out = merge_owned(base, overlay, ["dock.enable"])
+    check("owned key written", out["dock"]["enable"] is True)
+    check("unowned sibling kept", out["background"]["wallpaperPath"] == "/home/them/pic.jpg")
+    check("unowned branch kept", out["personal"]["name"] == "them")
+    check("base not mutated", base["dock"]["enable"] is False)
+
+    out2 = merge_owned(base, overlay, ["background.mode", "dock.enable"])
+    check("two owned keys", out2["background"]["mode"] == "fit" and out2["dock"]["enable"] is True)
+    check("wallpaper still theirs", out2["background"]["wallpaperPath"] == "/home/them/pic.jpg")
+
+    # A key the overlay does not define must leave base alone, not write None.
+    out3 = merge_owned(base, overlay, ["dock.missingKey"])
+    check("absent overlay key is a no-op", "missingKey" not in out3["dock"])
+
+    # A key absent from base must be created.
+    out4 = merge_owned({}, {"a": {"b": 1}}, ["a.b"])
+    check("creates missing branch", out4 == {"a": {"b": 1}})
+
+    # Nested values must be deep-copied, never aliased to the overlay.
+    ov = {"x": {"list": [1, 2]}}
+    out5 = merge_owned({}, ov, ["x.list"])
+    out5["x"]["list"].append(3)
+    check("deep copied", ov["x"]["list"] == [1, 2])
+
+    # Owning a whole branch copies the branch, not a reference to it.
+    out6 = merge_owned({"d": {"keep": 1}}, {"d": {"a": 1, "b": 2}}, ["d"])
+    check("owning a branch replaces it wholesale", out6["d"] == {"a": 1, "b": 2})
+
+    check("empty key list is a no-op", merge_owned(base, overlay, []) == base)
+
+
 if __name__ == "__main__":
     test_paths()
     test_expand()
+    test_merge()
     print()
     if FAILED:
         print(f"FAILED ({len(FAILED)}): {', '.join(FAILED)}")
