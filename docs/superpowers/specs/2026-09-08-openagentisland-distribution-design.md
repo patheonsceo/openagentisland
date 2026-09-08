@@ -219,7 +219,7 @@ it rather than relying on memory.
 3. Launches nested Hyprland with `dev/hypr-nested.conf` (moved in from
    `~/.config/hypr-nested/`): wildcard monitor, animations and blur off,
    `exec-once = qs -c openagentisland`.
-4. Pins the nested window to **workspace 8** at a fixed size, so captures are
+4. Pins the nested window to **workspace 1** at a fixed size, so captures are
    comparable across runs.
 
 **`dev/shot.sh <name>`** — reads the nested window geometry from
@@ -256,7 +256,7 @@ Documentation that cannot structurally drift from behaviour.
 | 0 | Land the 61 unpushed commits; rename the repo | done |
 | 1 | Engine, manifest, `test-install.sh`; port existing phases to rows | |
 | 2 | Vendor assets and configs | |
-| 3 | Dev harness — `nested.sh`, `shot.sh`, workspace 8 | |
+| 3 | Dev harness — `nested.sh`, `shot.sh`, workspace 1 | |
 | 4 | Mintlify docs; screenshots captured from the nested session | |
 | 5 | Round-trip verification; cut v1 | |
 

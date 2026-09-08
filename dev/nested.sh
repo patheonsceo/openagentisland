@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Launch a nested Hyprland running this repo's shell from a git worktree,
-# pinned to workspace 8.
+# pinned to workspace 1.
 #
 #   dev/nested.sh                 worktree for the current branch
 #   dev/nested.sh my-feature      worktree for branch my-feature (created if new)
@@ -18,7 +18,7 @@
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-WORKSPACE=8
+WORKSPACE=1
 # Fixed window size so every screenshot has identical geometry and two runs
 # compare pixel for pixel. The nested compositor adapts its output to
 # whatever size the host window is, so setting it here is enough.
@@ -83,6 +83,13 @@ ok "quickshell -> $(realpath --relative-to="$REPO" "$WT")/quickshell"
 [[ -f "$CONF/illogical-impulse/config.json" ]] \
     || cp "$WT/config/illogical-impulse/config.json" "$CONF/illogical-impulse/config.json"
 
+# Mark the shell as already greeted. Without this the first-run welcome dialog
+# covers the whole desktop on every single launch, because the shadow state
+# tree starts empty each time a worktree is created.
+FIRST_RUN="$SHADOW/state/quickshell/user/first_run.txt"
+mkdir -p "$(dirname "$FIRST_RUN")"
+[[ -f "$FIRST_RUN" ]] || echo "greeted by dev/nested.sh" > "$FIRST_RUN"
+
 # Generated colours are produced by matugen against a wallpaper. Copying them
 # rather than linking means the nested shell has a palette to render with and
 # still cannot write back into the live state directory.
@@ -115,7 +122,7 @@ NESTED_PID=$!
 echo "$NESTED_PID" > "$STATE/pid"
 info "pid $NESTED_PID, log $LOG"
 
-# ── pin to workspace 8 ────────────────────────────────────────────────
+# ── pin to workspace 1 ────────────────────────────────────────────────
 # Matched by address rather than by a windowrule on class: the nested
 # compositor's app_id varies between wlroots versions, and an address is exact.
 step "Pinning to workspace $WORKSPACE"

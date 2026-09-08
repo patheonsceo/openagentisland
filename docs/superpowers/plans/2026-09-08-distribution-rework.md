@@ -15,7 +15,7 @@
 - **Never write outside the repo during development.** The one runtime exception is the existing `~/.config/quickshell/openagentisland` symlink. Tests write only to a scratch `$HOME`.
 - **`quickshell/` must stay at the repo root.** The live symlink tracks `main`; moving the directory breaks the running desktop on the next pull.
 - **Never touch `~/.config/quickshell/ii/`** — that is the user's live end-4 desktop.
-- **The nested test session pins to workspace 8.**
+- **The nested test session pins to workspace 1.**
 - **Python 3.11+** for `tomllib`. Target is 3.14.7 as installed.
 - **No new runtime dependencies.** `git`, `python3` and coreutils only, matching what `install.sh` already requires.
 - **Every mutating action goes through one `run()`-equivalent** so `--dry-run` is honest by construction, not by remembering to check a flag.
@@ -36,7 +36,7 @@
 | `install/test_engine.py` | Unit tests for the pure logic above. No filesystem. |
 | `install.sh` | Argument parsing, preflight, and the call into the engine. Keeps existing detection helpers. |
 | `dev/test-install.sh` | Round-trip install/uninstall against a scratch `$HOME`. |
-| `dev/nested.sh` | Worktree + shadow XDG + nested Hyprland on workspace 8. |
+| `dev/nested.sh` | Worktree + shadow XDG + nested Hyprland on workspace 1. |
 | `dev/shot.sh` | Deterministic capture of the nested window. |
 | `dev/hypr-nested.conf` | Nested compositor config, moved in from `~/.config/hypr-nested/`. |
 
@@ -670,9 +670,9 @@ cp ~/.config/hypr-nested/hyprland.conf dev/hypr-nested.conf
 
 Creates the worktree at `.worktrees/<branch>`; builds a shadow XDG tree inside it with `XDG_CONFIG_HOME`, `XDG_STATE_HOME` and `XDG_CACHE_HOME` redirected and `quickshell/openagentisland` linked to the **worktree's** QML; launches nested Hyprland with `WLR_BACKENDS=wayland WLR_NO_HARDWARE_CURSORS=1 HYPRLAND_INSTANCE_SIGNATURE=`.
 
-- [ ] **Step 3: Pin the nested window to workspace 8**
+- [ ] **Step 3: Pin the nested window to workspace 1**
 
-Add a host windowrule matching the nested Hyprland window, moving it to workspace 8 silently at a fixed size so captures are comparable between runs.
+Add a host windowrule matching the nested Hyprland window, moving it to workspace 1 silently at a fixed size so captures are comparable between runs.
 
 - [ ] **Step 4: Verify isolation**
 
@@ -723,7 +723,7 @@ git commit -m "Document the desktop on Mintlify"
 - [ ] **Step 1: Full round-trip** — `bash dev/test-install.sh`
 - [ ] **Step 2: Unit tests** — `python3 install/test_engine.py`
 - [ ] **Step 3: Bridge safety unchanged** — `python3 bridge/test_safety.py` (expect 13/13)
-- [ ] **Step 4: Nested session renders on workspace 8**, screenshots captured
+- [ ] **Step 4: Nested session renders on workspace 1**, screenshots captured
 - [ ] **Step 5: `./install.sh --status`** against the live machine reports honestly
 - [ ] **Step 6: Update `PROGRESS.md` and `README.md`**
 - [ ] **Step 7: Commit and push**

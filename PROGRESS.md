@@ -34,7 +34,7 @@ plan in `docs/superpowers/plans/2026-09-08-distribution-rework.md`.
 - **Vendored the desktop**: 3 font families + PP Editorial New, WhiteSur icons,
   MatugenGlass, wallpapers, `hypr/custom`, terminal and launcher configs.
 - **A nested dev harness** — `dev/nested.sh` runs the shell from a git worktree
-  in a nested Hyprland pinned to **workspace 8** at a fixed 1600x900, against a
+  in a nested Hyprland pinned to **workspace 1** at a fixed 1600x900, against a
   shadow XDG tree it cannot escape. `dev/shot.sh` captures deterministically.
 - **Docs on Mintlify** — 12 pages. `what-it-installs.mdx` is generated from
   `manifest.toml`, so it cannot go stale.
@@ -86,7 +86,7 @@ plan in `docs/superpowers/plans/2026-09-08-distribution-rework.md`.
 `python3 install/test_engine.py` — all passed ·
 `bash dev/test-install.sh` — round-trip PASSED ·
 `python3 bridge/test_safety.py` — 13/13 ·
-docs generator deterministic · nested session renders on ws8 · live symlink
+docs generator deterministic · nested session renders on ws1 · live symlink
 still points at the main checkout, live shell untouched.
 
 ### Next
