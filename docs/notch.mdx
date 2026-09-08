@@ -1,0 +1,44 @@
+---
+title: The notch
+description: "What the centre island does, and what makes it change shape."
+---
+
+<img src="/screenshots/morph.gif" alt="The notch morphing through volume, agents, and a permission request" />
+
+Idle, the notch is a clock. It expands when something needs your attention and
+returns on its own.
+
+## States, and what beats what
+
+When two things want the notch at once, this is the order:
+
+1. **Agent permission** — a Claude Code session is blocked waiting on you
+2. **Agent status** — a session is running
+3. **Media** — something is playing
+4. **Volume / brightness** — you just changed one
+5. **Notification** — one just arrived
+6. **Idle** — the clock
+
+A permission request outranks everything, because it is the only state where
+something is actually waiting on you.
+
+## Surfaces
+
+Clicking a pill opens a surface inside the notch rather than a separate window:
+
+| Surface | What it holds |
+| --- | --- |
+| Dashboard | Widgets, kanban |
+| Overview | Workspace grid |
+| Launcher | Fuzzy app and settings search |
+| Power | Lock, sleep, log out, restart, shut down |
+| Tools | Screen capture and recording |
+
+Close with Escape, by clicking outside, by clicking the trigger again, or by
+taking the action.
+
+## Multi-monitor
+
+Every island renders per-monitor in correct logical coordinates, including
+scaled and rotated displays. A surface opens on the monitor you clicked, not
+wherever the mouse happens to be later.

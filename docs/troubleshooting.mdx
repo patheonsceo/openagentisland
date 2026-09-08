@@ -1,0 +1,69 @@
+---
+title: Troubleshooting
+description: "Things that go wrong, and what they mean."
+---
+
+## First, ask the installer
+
+```bash
+./install.sh --status
+```
+
+| Status | Meaning |
+| --- | --- |
+| `ok` | Matches the repo |
+| `missing` | Never installed, or removed since |
+| `differs` | Present but the contents do not match |
+| `not-injected` | The file exists but has no marked block |
+| `not-a-link` | Should be a symlink, is a real file or directory |
+| `wrong-target` | Is a symlink, but points somewhere else |
+
+## The shell will not start
+
+```bash
+qs -c openagentisland
+```
+
+Run it in a terminal and read the error. Quickshell reports the exact
+`file:line`. On a QML error the nested session shows a red "Reload failed" panel
+with the same information.
+
+## Traffic lights are not styled
+
+Two common causes.
+
+**The CSS went into the generated file instead of the template.**
+`~/.config/gtk-3.0/gtk.css` is *output* — matugen rewrites it on every wallpaper
+change, so anything written there is lost. The block belongs in
+`~/.config/matugen/templates/gtk-3.0/gtk.css`, which is where the installer puts
+it.
+
+**matugen has not run since.** Change your wallpaper once to regenerate.
+
+## Uninstall says there is no backup
+
+The backup lives at
+`~/.local/share/openagentisland-backups/original/`. If it is gone, uninstall has
+nothing to restore from and stops rather than guessing.
+
+## The Trash icon looks full when it is empty
+
+Fixed. If you still see it, you are on an older checkout — `Directories.home`
+already carries the `file://` scheme, and prefixing it again produced a URI
+`FolderListModel` could not parse, so it silently fell back to the shell's
+working directory, which is never empty.
+
+## Claude Code hangs waiting on the island
+
+It should be impossible, and there is a test for it:
+
+```bash
+python3 bridge/test_safety.py
+```
+
+13 checks across every failure mode — listener down, listener present, listener
+frozen. If any fail, disable the hooks and open an issue:
+
+```bash
+python3 bridge/install-hooks.py disable
+```

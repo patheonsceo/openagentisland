@@ -1,0 +1,66 @@
+---
+title: Agent Island
+description: "Live Claude Code sessions in the notch, with Allow and Deny where you are already looking."
+---
+
+<img src="/screenshots/agents.png" alt="Multiple Claude Code sessions tracked in the island" />
+
+This is the part no other rice does. Claude Code sessions appear in the notch as
+they run, and when one wants permission to do something, you answer it there.
+
+## Turning it on
+
+```bash
+./install.sh --agent-hooks
+```
+
+Or on an existing install:
+
+```bash
+python3 bridge/install-hooks.py enable
+python3 bridge/install-hooks.py status
+python3 bridge/install-hooks.py disable
+```
+
+This adds hook entries to `~/.claude/settings.json`. Nothing else is touched.
+
+## Permission requests
+
+<img src="/screenshots/permission-card.png" alt="A permission card in the notch" />
+
+When a session wants to run `Bash`, `Write` or `Edit`, the notch morphs open with
+the tool, a preview of exactly what it will do, and four choices:
+
+| Choice | Effect |
+| --- | --- |
+| **Deny** | Refuse this one |
+| **Allow Once** | Just this call |
+| **Allow All** | Every call of this tool, this session |
+| **Bypass** | Stop asking for this session entirely |
+
+## Multiple sessions
+
+Every running `claude` is tracked at once — status, the prompt you gave it, and a
+live relative time. Sorted with whatever needs you first. Click a session to
+focus the terminal running it, switching workspace if it is elsewhere.
+
+Each session shows its permission mode as a chip — **Auto-edit**, **Bypass**,
+**Plan** — synced live and updated when you press Shift+Tab in the terminal.
+
+## It cannot break your Claude Code
+
+This is the part worth being careful about, because a blocking hook that waits on
+a dead listener would hang your editor.
+
+The hook is fire-and-forget with a timeout. If the island is not listening, has
+crashed, or is frozen, the hook falls back to Claude Code's normal prompt. A
+broken island must never make real Claude Code unusable.
+
+That is a claim with a test behind it — 13 checks across every failure mode:
+
+```bash
+python3 bridge/test_safety.py
+```
+
+It runs standalone and needs no island. If any check fails, disable the hooks and
+open an issue.

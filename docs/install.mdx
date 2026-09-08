@@ -1,0 +1,72 @@
+---
+title: Install
+description: "Every flag, what it does, and how to check before you commit."
+---
+
+## The normal path
+
+```bash
+git clone https://github.com/patheonsceo/openagentisland.git
+cd openagentisland
+./install.sh
+```
+
+## Look before you leap
+
+```bash
+./install.sh --dry-run
+```
+
+Prints every action and changes nothing. This is honest by construction rather
+than by care: every mutating operation in the engine goes through a single gate,
+so there is no code path that can modify a file while `--dry-run` is set.
+
+## Profiles
+
+| Profile | What you get |
+| --- | --- |
+| `full` (default) | The whole desktop — shell, fonts, icons, theme, Hyprland config, terminal |
+| `island` | Only the Quickshell config and the setting that points Hyprland at it |
+
+```bash
+./install.sh --profile island
+```
+
+Use `island` when you already have a rice you like and only want the notch.
+
+## All flags
+
+| Flag | Effect |
+| --- | --- |
+| `--profile full\|island` | Which set of artifacts to install |
+| `--skip-base` | Do not touch the end-4 base; assume it works |
+| `--agent-hooks` | Enable the Claude Code bridge hooks |
+| `--voice` | Print voice-dictation setup notes |
+| `--dry-run` | Show every action, perform none |
+| `--status` | Report how your machine differs from the repo |
+| `-y`, `--yes` | Assume yes to all prompts |
+| `--uninstall` | Restore the original backup |
+| `-h`, `--help` | Usage |
+
+## Checking what changed
+
+```bash
+./install.sh --status
+```
+
+For each artifact this reports `ok`, `missing`, `differs`, `not-injected`,
+`wrong-target` or `not-a-link`. It never modifies anything — it only tells you
+where your machine and the repo disagree.
+
+This matters because nothing here syncs automatically. Editing a config by hand
+is fine and expected; `--status` is how you find out you did.
+
+## After installing
+
+Reload the shell:
+
+```bash
+pkill -x qs; setsid -f qs -c openagentisland
+```
+
+Restart Zen if you had it open, so it picks up its traffic lights.

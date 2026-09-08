@@ -1,0 +1,84 @@
+---
+title: What it installs
+description: "Every file the installer touches, generated from the manifest it reads."
+---
+
+<Note>
+  This page is generated from `manifest.toml` by `install/gen_docs.py`.
+  It is the same table the installer reads, so it cannot fall out of date.
+</Note>
+
+Run `./install.sh --status` to see how your machine currently differs from
+any of this, and `./install.sh --dry-run` to watch a full install without
+changing anything.
+
+## Every destination
+
+| What | Where it goes | How | Profile |
+| --- | --- | --- | --- |
+| `shell` | `~/.config/quickshell/openagentisland` | symlink | island, full |
+| `hypr-qsconfig` | `~/.config/hypr/hyprland/variables.lua` | inject | island, full |
+| `fonts` | `~/.local/share/fonts` | copy | full |
+| `icons` | `~/.local/share/icons` | extract | full |
+| `theme-matugenglass` | `~/.local/share/themes/MatugenGlass` | copy | full |
+| `wallpapers` | `~/Pictures/Wallpapers` | copy | full |
+| `gtk3-settings` | `~/.config/gtk-3.0/settings.ini` | setting | full |
+| `gtk4-settings` | `~/.config/gtk-4.0/settings.ini` | setting | full |
+| `kdeglobals` | `~/.config/kdeglobals` | setting | full |
+| `gsettings-wm` | gsettings (dconf) | setting | full |
+| `gsettings-interface` | gsettings (dconf) | setting | full |
+| `traffic-lights-gtk3` | `~/.config/matugen/templates/gtk-3.0/gtk.css` | inject | full |
+| `traffic-lights-gtk4` | `~/.config/matugen/templates/gtk-4.0/gtk.css` | inject | full |
+| `hypr-custom` | `~/.config/hypr/custom` | copy | full |
+| `kitty` | `~/.config/kitty` | copy | full |
+| `fish` | `~/.config/fish` | copy | full |
+| `foot` | `~/.config/foot` | copy | full |
+| `fuzzel` | `~/.config/fuzzel` | copy | full |
+| `nautilus-glass` | `~/.config/nautilus-glass` | copy | full |
+| `ii-config` | `~/.config/illogical-impulse/config.json` | merge-json | full |
+
+## What each method means
+
+**`copy`** — Copied in. Your existing file is backed up first.
+
+**`extract`** — Unpacked from an archive.
+
+**`inject`** — A marked block is added to a file this rice shares with another project. Everything around it is left alone.
+
+**`merge-json`** — Only the listed keys are written into your existing JSON. Everything else in the file survives.
+
+**`setting`** — Individual keys are written. Other keys in the file are untouched.
+
+**`symlink`** — Linked, not copied — the destination points back into the repo.
+
+## Settings this rice claims
+
+Your shell config is mostly yours. These are the only paths the
+installer will write; anything else in the file — your wallpaper, your
+monitor layout, your preferences — is left exactly as it was.
+
+In `~/.config/illogical-impulse/config.json`:
+
+- `appearance.fonts`
+- `appearance.transparency`
+- `appearance.wallpaperTheming`
+- `appearance.extraBackgroundTint`
+- `appearance.fakeScreenRounding`
+- `background.widgets`
+- `background.parallax`
+- `background.hideWhenFullscreen`
+- `dock`
+- `bar`
+- `battery.keepAwakeWhenPluggedIn`
+- `regionSelector.rememberLastRegion`
+
+## Undoing it
+
+```bash
+./install.sh --uninstall
+```
+
+The first install snapshots every destination before changing it, and that
+snapshot is never overwritten by later runs. So installing twice and
+uninstalling once still returns you to how things were before the first
+install, rather than to the state in between.

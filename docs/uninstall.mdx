@@ -1,0 +1,57 @@
+---
+title: Uninstall
+description: "How to put the machine back, and what 'back' means precisely."
+---
+
+```bash
+./install.sh --uninstall
+```
+
+## What it restores
+
+Before the installer changes anything for the first time, it snapshots every
+destination it is about to touch. That snapshot is written **once** and is never
+overwritten by a later run.
+
+This matters more than it sounds. The obvious design — restore from the most
+recent backup — strands anyone who installs twice and uninstalls once in the
+state that existed *after* their first install. That is not where they started,
+and not anywhere they asked to be. So the first snapshot is the one that counts.
+
+Destinations that did not exist before are recorded as absent and are **removed**
+rather than restored, so nothing is left behind.
+
+## Files shared with other projects
+
+Some files are not wholly ours — matugen's GTK templates, Zen's `userChrome.css`,
+end-4's `variables.lua`. In those, the installer owns only a fenced block:
+
+```css
+/* >>> openagentisland >>> */
+...
+/* <<< openagentisland <<< */
+```
+
+Uninstall removes exactly that block and leaves the rest of the file alone. This
+is deliberately surgical rather than restoring the whole file, because those
+files legitimately change after installation — matugen rewrites its templates on
+every wallpaper change — and stamping an old copy back would undo work that was
+nothing to do with this rice.
+
+## gsettings
+
+Values read before being changed are recorded and put back. If `gsettings` is
+not present, this step is skipped rather than failed.
+
+## Verifying
+
+The round trip is tested, not assumed:
+
+```bash
+bash dev/test-install.sh
+```
+
+That installs into a throwaway `$HOME`, checks every artifact landed, installs
+again to prove it is idempotent, uninstalls, and then asserts the scratch home
+is byte-for-byte what it was — including that a pre-existing `config.json` with
+someone else's wallpaper path came through untouched.
