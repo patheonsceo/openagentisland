@@ -1,7 +1,6 @@
----
-title: Dock and widgets
-description: "The dock, the desktop widgets, and the desktop icons that get out of their way."
----
+# Dock and widgets
+
+_The dock, the desktop widgets, and the desktop icons that get out of their way._
 
 ## The dock
 

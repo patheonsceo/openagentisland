@@ -1,12 +1,10 @@
----
-title: What it installs
-description: "Every file the installer touches, generated from the manifest it reads."
----
+# What it installs
 
-<Note>
-  This page is generated from `manifest.toml` by `install/gen_docs.py`.
-  It is the same table the installer reads, so it cannot fall out of date.
-</Note>
+_Every file the installer touches, generated from the manifest it reads._
+
+> [!NOTE]
+> This page is generated from `manifest.toml` by `install/gen_docs.py`.
+> It is the same table the installer reads, so it cannot fall out of date.
 
 Run `./install.sh --status` to see how your machine currently differs from
 any of this, and `./install.sh --dry-run` to watch a full install without

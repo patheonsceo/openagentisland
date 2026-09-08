@@ -1,7 +1,6 @@
----
-title: Development
-description: "Working on the shell without putting your own desktop at risk."
----
+# Development
+
+_Working on the shell without putting your own desktop at risk._
 
 ## The rule
 
@@ -57,7 +56,7 @@ python3 bridge/test_safety.py    # the agent bridge can never hang Claude Code
 
 Add a row to `manifest.toml`. That is the whole change — install, `--dry-run`,
 `--uninstall`, `--status` and the round-trip test all derive from that table, and
-`docs/what-it-installs.mdx` regenerates from it:
+`docs/what-it-installs.md` regenerates from it:
 
 ```bash
 python3 install/gen_docs.py

@@ -36,8 +36,10 @@ plan in `docs/superpowers/plans/2026-09-08-distribution-rework.md`.
 - **A nested dev harness** — `dev/nested.sh` runs the shell from a git worktree
   in a nested Hyprland pinned to **workspace 1** at a fixed 1600x900, against a
   shadow XDG tree it cannot escape. `dev/shot.sh` captures deterministically.
-- **Docs on Mintlify** — 12 pages. `what-it-installs.mdx` is generated from
-  `manifest.toml`, so it cannot go stale.
+- **Docs are plain Markdown in `docs/`** — 12 pages, `docs/README.md` as the
+  index, because GitHub renders it when you open the directory.
+  `what-it-installs.md` is generated from `manifest.toml`, so it cannot go
+  stale. Mintlify was built out first and then dropped, see below.
 
 ### Measurement changed the plan twice
 
@@ -76,10 +78,15 @@ plan in `docs/superpowers/plans/2026-09-08-distribution-rework.md`.
 - **Fenced injection was not byte-idempotent.** The insert path added a newline
   *and* the block; the replace path added only the block, so run one and run
   two differed by a blank line. Found by a test written before the port.
-- **MDX is not Markdown.** `<https://console.groq.com>` is a valid Markdown
-  autolink and an MDX parse error — `<` starts JSX. `npx mint broken-links`
-  catches it; the Mintlify build would otherwise have failed on push. Worth
-  running before every docs push.
+- **Mintlify was tried and dropped.** Two problems, both structural rather than
+  cosmetic. Its content directory defaults to the repo root and has to be set
+  in a dashboard for `docs/` to be found at all; and it reports nothing back to
+  GitHub, so there is no check run, no deployment, and a failed build is
+  silent. It also cost a real bug on the way in: `<https://console.groq.com>`
+  is a valid Markdown autolink and an MDX parse error, because `<` starts JSX.
+  `npx mint broken-links` caught it, but only because it was run deliberately.
+  For a repo a handful of people read, GitHub's own rendering covers it with
+  nothing to configure and nothing to rot.
 - **Hyprland `.conf` is deprecated** — 0.57 removes it, and 0.56 says so across
   the top of every screenshot. Converting the nested config to Lua turned up
   three things: an invented `misc` key is fatal, key strings join with `+` not
@@ -120,7 +127,6 @@ the nested environment.
   is already scoped: `systemd-nspawn` with the host Wayland socket bound in,
   nested Hyprland as a window. The real unknown is whether Quickshell builds
   against Ubuntu's Qt6.
-- Connect the Mintlify GitHub app so `docs/` actually deploys.
 - Re-shoot the README screenshots from the nested session, with the welcome
   dialog dismissed.
 

@@ -1,7 +1,6 @@
----
-title: Install
-description: "Every flag, what it does, and how to check before you commit."
----
+# Install
+
+_Every flag, what it does, and how to check before you commit._
 
 ## The normal path
 

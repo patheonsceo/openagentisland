@@ -1,7 +1,6 @@
----
-title: Troubleshooting
-description: "Things that go wrong, and what they mean."
----
+# Troubleshooting
+
+_Things that go wrong, and what they mean._
 
 ## First, ask the installer
 

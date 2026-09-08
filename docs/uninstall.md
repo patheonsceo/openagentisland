@@ -1,7 +1,6 @@
----
-title: Uninstall
-description: "How to put the machine back, and what 'back' means precisely."
----
+# Uninstall
+
+_How to put the machine back, and what 'back' means precisely._
 
 ```bash
 ./install.sh --uninstall

@@ -1,9 +1,8 @@
----
-title: The notch
-description: "What the centre island does, and what makes it change shape."
----
+# The notch
 
-<img src="/screenshots/morph.gif" alt="The notch morphing through volume, agents, and a permission request" />
+_What the centre island does, and what makes it change shape._
+
+![The notch morphing through volume, agents, and a permission request](screenshots/morph.gif)
 
 Idle, the notch is a clock. It expands when something needs your attention and
 returns on its own.

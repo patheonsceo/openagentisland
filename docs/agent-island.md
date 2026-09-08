@@ -1,9 +1,8 @@
----
-title: Agent Island
-description: "Live Claude Code sessions in the notch, with Allow and Deny where you are already looking."
----
+# Agent Island
 
-<img src="/screenshots/agents.png" alt="Multiple Claude Code sessions tracked in the island" />
+_Live Claude Code sessions in the notch, with Allow and Deny where you are already looking._
+
+![Multiple Claude Code sessions tracked in the island](screenshots/agents.png)
 
 This is the part no other rice does. Claude Code sessions appear in the notch as
 they run, and when one wants permission to do something, you answer it there.
@@ -26,7 +25,7 @@ This adds hook entries to `~/.claude/settings.json`. Nothing else is touched.
 
 ## Permission requests
 
-<img src="/screenshots/permission-card.png" alt="A permission card in the notch" />
+![A permission card in the notch](screenshots/permission-card.png)
 
 When a session wants to run `Bash`, `Write` or `Edit`, the notch morphs open with
 the tool, a preview of exactly what it will do, and four choices:

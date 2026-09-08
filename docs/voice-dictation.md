@@ -1,8 +1,6 @@
----
-title: Voice dictation
-description: "Hold Right Ctrl to dictate into any window, with a live waveform in the notch."
----
+# Voice dictation
 
+_Hold Right Ctrl to dictate into any window, with a live waveform in the notch._
 
 Hold **Right Ctrl** → the notch morphs into a dictation pill with a live
 waveform. Speak, release, and the transcript is typed into whatever window has

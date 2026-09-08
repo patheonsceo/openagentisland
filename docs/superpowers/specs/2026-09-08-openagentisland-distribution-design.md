@@ -74,7 +74,12 @@ brainstorm → spec → plan cycle. The installer is nonetheless built so distro
 differences are isolated to manifest columns rather than scattered through
 imperative phases, so the later port is an extension rather than a rewrite.
 
-**2.6 — Docs are Mintlify.** MDX in-repo, auto-deployed from `main`.
+**2.6 — Docs are plain Markdown in the repo, with no site.** Mintlify was tried
+first and dropped: it needs its content directory configured in a dashboard,
+and it reports nothing back to GitHub, so a failed build is silent. For a repo
+read by a handful of people, GitHub's own Markdown rendering covers it — no
+generator, no deploy, nothing to rot. `docs/README.md` is the index, because
+GitHub shows it when you open the directory.
 
 ## 3. Repo layout
 
@@ -98,7 +103,7 @@ openagentisland/
 │   ├── icons/*.tar.zst
 │   ├── themes/MatugenGlass/
 │   └── wallpapers/
-├── docs/                   Mintlify
+├── docs/                   plain Markdown, docs/README.md is the index
 └── dev/                    worktree + nested-session harness
 ```
 
@@ -240,12 +245,13 @@ the codebase.
 
 ## 7. Documentation
 
-Mintlify, `docs/docs.json` plus MDX, deployed from `main`.
+Plain Markdown in `docs/`. `docs/README.md` is the index and carries the
+navigation, since GitHub renders it when the directory is opened.
 
 Home · Quickstart · Requirements · Install · What it installs · Configuring
 (notch, dock, widgets, keybinds) · Agent Island · Uninstall & troubleshooting.
 
-**"What it installs" is generated from `manifest.toml` at build time.** Every
+**"What it installs" is generated from `manifest.toml`.** Every
 file the installer touches, listed from the same table the installer reads.
 Documentation that cannot structurally drift from behaviour.
 
@@ -257,7 +263,7 @@ Documentation that cannot structurally drift from behaviour.
 | 1 | Engine, manifest, `test-install.sh`; port existing phases to rows | |
 | 2 | Vendor assets and configs | |
 | 3 | Dev harness — `nested.sh`, `shot.sh`, workspace 1 | |
-| 4 | Mintlify docs; screenshots captured from the nested session | |
+| 4 | Docs; screenshots captured from the nested session | |
 | 5 | Round-trip verification; cut v1 | |
 
 Phase 3 could precede phase 2. It does not, because phases 1 and 2 are both

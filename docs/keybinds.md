@@ -1,7 +1,6 @@
----
-title: Keybinds
-description: "What this rice binds on top of the end-4 defaults."
----
+# Keybinds
+
+_What this rice binds on top of the end-4 defaults._
 
 The end-4 base brings its own keybinds and this rice keeps them. What follows is
 what `config/hypr/custom/keybinds.lua` adds or changes.
@@ -14,7 +13,7 @@ what `config/hypr/custom/keybinds.lua` adds or changes.
 | `Super + Shift + S` | Region snip — reopens with your last selection drawn |
 | `Enter` in snip | Accept the restored region |
 | `Shift + Enter` in snip | Accept, and send it to the annotation editor |
-| `Right Ctrl` (hold) | Push-to-talk dictation — see [Voice dictation](/voice-dictation) |
+| `Right Ctrl` (hold) | Push-to-talk dictation — see [Voice dictation](voice-dictation.md) |
 | `Ctrl + Super + Alt + /` | Open this keybinds file |
 
 ## Two things worth knowing

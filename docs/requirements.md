@@ -1,7 +1,6 @@
----
-title: Requirements
-description: "What you need before installing, and what the installer will set up for you."
----
+# Requirements
+
+_What you need before installing, and what the installer will set up for you._
 
 ## The short version
 
@@ -38,13 +37,13 @@ If you already run end-4, skip it:
 **Everything else** comes from this repo: the shell, three font families, the
 WhiteSur icon themes, the MatugenGlass theme, wallpapers, Hyprland keybinds and
 rules, and the terminal and launcher configs. The full list is on
-[What it installs](/what-it-installs).
+[What it installs](what-it-installs.md).
 
 ## Optional extras
 
 - **Claude Code** — for the agent island. Enable the hooks with `--agent-hooks`.
 - **Zen browser** — gets matching traffic lights automatically if it is installed.
-- **hyprvoice + a Groq key** — for [voice dictation](/voice-dictation).
+- **hyprvoice + a Groq key** — for [voice dictation](voice-dictation.md).
 
 ## Other distributions
 

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-Generate docs/what-it-installs.mdx from manifest.toml.
+Generate docs/what-it-installs.md from manifest.toml.
 
 Documentation that lists what an installer touches goes stale the moment a row
 is added and nobody remembers the docs. Generating the page from the same table
-the installer reads makes that impossible: the page is either current or the
-build fails.
+the installer reads makes that impossible: regenerate and the page is current,
+and CI can assert there is no diff.
 
 Run: python3 install/gen_docs.py
 Deterministic — running it twice produces no diff.
@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from manifest import load  # noqa: E402
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-OUT = os.path.join(REPO, "docs", "what-it-installs.mdx")
+OUT = os.path.join(REPO, "docs", "what-it-installs.md")
 
 MODE_BLURB = {
     "symlink": "Linked, not copied — the destination points back into the repo.",
@@ -36,15 +36,13 @@ def main():
     artifacts = load(os.path.join(REPO, "manifest.toml"))
 
     lines = [
-        "---",
-        "title: What it installs",
-        'description: "Every file the installer touches, generated from the manifest it reads."',
-        "---",
+        "# What it installs",
         "",
-        "<Note>",
-        "  This page is generated from `manifest.toml` by `install/gen_docs.py`.",
-        "  It is the same table the installer reads, so it cannot fall out of date.",
-        "</Note>",
+        "_Every file the installer touches, generated from the manifest it reads._",
+        "",
+        "> [!NOTE]",
+        "> This page is generated from `manifest.toml` by `install/gen_docs.py`.",
+        "> It is the same table the installer reads, so it cannot fall out of date.",
         "",
         "Run `./install.sh --status` to see how your machine currently differs from",
         "any of this, and `./install.sh --dry-run` to watch a full install without",

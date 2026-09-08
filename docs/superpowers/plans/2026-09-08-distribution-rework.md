@@ -691,29 +691,29 @@ git commit -m "Add the nested development harness"
 
 ---
 
-### Task 8: Mintlify documentation
+### Task 8: Documentation
 
 **Files:**
-- Create: `docs/docs.json`, `docs/*.mdx`, `install/gen_docs.py`
+- Create: `docs/README.md` (index + navigation), `docs/*.md`, `install/gen_docs.py`
 
-- [ ] **Step 1: Write `docs/docs.json`** with the navigation from spec §7.
+- [ ] **Step 1: Write `docs/README.md`** with the navigation from spec §7. GitHub renders it when the directory is opened, so it is the index.
 
 - [ ] **Step 2: Write the pages** — Home, Quickstart, Requirements, Install, Configuring, Agent Island, Uninstall & troubleshooting.
 
 - [ ] **Step 3: Generate "What it installs" from the manifest**
 
-`install/gen_docs.py` reads `manifest.toml` and emits `docs/what-it-installs.mdx` as a table of every destination. Documentation that cannot drift from behaviour.
+`install/gen_docs.py` reads `manifest.toml` and emits `docs/what-it-installs.md` as a table of every destination. Documentation that cannot drift from behaviour.
 
 - [ ] **Step 4: Verify the generator matches the manifest**
 
-Run: `python3 install/gen_docs.py && git diff --exit-code docs/what-it-installs.mdx`
+Run: `python3 install/gen_docs.py && git diff --exit-code docs/what-it-installs.md`
 Expected: no diff on a second run — the generator is deterministic.
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add docs/ install/gen_docs.py
-git commit -m "Document the desktop on Mintlify"
+git commit -m "Document the desktop"
 ```
 
 ---
