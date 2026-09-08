@@ -99,6 +99,21 @@ plan in `docs/superpowers/plans/2026-09-08-distribution-rework.md`.
 docs generator deterministic · nested session renders on ws1 · live symlink
 still points at the main checkout, live shell untouched.
 
+### Screenshots
+
+`desktop.png` and `islands.png` still showed the three-island layout the menubar
+replaced — dated 8 June, and flagged as stale in the entry below at the time.
+Re-shot from the nested session: `desktop.png` (full), `menubar.png`,
+`dock.png`, `widgets.png`. `islands.png` is deleted, and the README section it
+illustrated is rewritten, along with the hero caption and the "you'll see the
+three floating islands" line further down.
+
+Still June-era, but not *wrong* — they show notch surfaces that still exist:
+`agents.png`, `dashboard.png`, `launcher.png`, `overview.png`, `volume.png`,
+`permission-card.png`, `morph.gif`. Re-shooting them needs the nested UI driven
+into each state, and the two agent ones need a live Claude Code session inside
+the nested environment.
+
 ### Next
 
 - Ubuntu port — its own brainstorm → spec → plan cycle. Container-based testing

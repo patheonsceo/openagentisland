@@ -8,11 +8,11 @@
 
 <p align="center"><i>The notch morphing live — volume OSD → agent status → a Claude Code permission request, approved in place.</i></p>
 
-<p align="center"><img src="docs/screenshots/desktop.png" alt="OpenAgentIsland desktop — three floating islands over a wallpaper" width="900"></p>
+<p align="center"><img src="docs/screenshots/desktop.png" alt="The OpenAgentIsland desktop — menubar, notch, frosted widgets and dock" width="900"></p>
 
-No full-width bar — **three floating islands** with the wallpaper breathing through the gaps. The
-centerpiece is a **morphing notch**: a minimal clock when idle that fluidly expands for volume,
-brightness, media, notifications, dashboards… and the headline act:
+A macOS-shaped desktop: a slim **menubar**, frosted **widgets** sitting on the wallpaper, and a
+magnifying **dock**. The centrepiece is a **morphing notch** — a minimal clock when idle that
+expands for volume, brightness, media, notifications, dashboards… and the headline act:
 
 > **Live Claude Code agent status, with permission Allow / Deny right from the notch.**
 
@@ -49,15 +49,26 @@ notch morphs open with the tool, a preview of exactly what it'll do, and four on
 
 ---
 
-## 🏝️ Three floating islands
+## 🍎 Menubar, notch, dock
 
-<p align="center"><img src="docs/screenshots/islands.png" alt="The island row: left cluster, center notch, right cluster" width="900"></p>
+<p align="center"><img src="docs/screenshots/menubar.png" alt="The menubar: traffic lights, app menus, the notch, and the status cluster" width="900"></p>
 
-- **Left** — search · workspaces · weather · overview · network
-- **Center (the notch)** — the morphing star (clock → OSDs → media → agent → surfaces)
-- **Right** — resources · clock · battery · system tray · power
+- **Left** — traffic lights and real app menus (Window · Go · Capture · Focus), plus a system menu
+- **Centre (the notch)** — the morphing star: clock → OSDs → media → agent → surfaces
+- **Right** — audio · bluetooth · network · battery · tray · clock
 
-Fully **multi-monitor**: every island renders per-monitor in correct logical coordinates (scaled and
+<p align="center"><img src="docs/screenshots/dock.png" alt="The dock, with magnification and running-app indicators" width="900"></p>
+
+The **dock** magnifies on hover, marks running apps, and its Trash reflects whether the Trash
+actually has anything in it.
+
+<p align="center"><img src="docs/screenshots/widgets.png" alt="Frosted clock, calendar and to-do widgets on the wallpaper" width="640"></p>
+
+**Widgets** — clock, calendar, to-do — live on their own layer above the wallpaper and below every
+window. Desktop icons share that space and step aside when a widget covers them, returning home
+when it moves away.
+
+Fully **multi-monitor**: everything renders per-monitor in correct logical coordinates (scaled and
 rotated displays included), and a surface opens only on the monitor you clicked.
 
 ---
@@ -137,7 +148,7 @@ Then relogin, or hot-swap without one:
 ```sh
 pkill -f "qs -c ii"; hyprctl dispatch exec "qs -c openagentisland"
 ```
-You'll see the three floating islands. To go back, set `qsConfig` to `"ii"`.
+You'll see the menubar, notch and dock. To go back, set `qsConfig` to `"ii"`.
 
 ### 4. (Optional) Enable the Claude Code agent feature
 With Claude Code installed:
