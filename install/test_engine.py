@@ -114,10 +114,49 @@ def test_merge():
     check("empty key list is a no-op", merge_owned(base, overlay, []) == base)
 
 
+# ── textblock ─────────────────────────────────────────────────────────
+from textblock import inject, strip  # noqa: E402
+
+B, E = "/* >>> oai >>> */", "/* <<< oai <<< */"
+
+
+def test_textblock():
+    print("textblock")
+    out = inject("body {}", "a{}", B, E)
+    check("appends when absent", out.count(B) == 1 and "a{}" in out)
+    check("keeps original content", "body {}" in out)
+
+    twice = inject(out, "a{}", B, E)
+    check("idempotent", twice.count(B) == 1)
+    check("idempotent output is stable", twice == out)
+
+    replaced = inject(out, "b{}", B, E)
+    check("replaces body", "b{}" in replaced and "a{}" not in replaced)
+    check("still exactly one block", replaced.count(B) == 1)
+
+    tail = inject("head\n", "x{}", B, E) + "trailer\n"
+    stripped = strip(tail, B, E)
+    check("strip removes markers", B not in stripped and E not in stripped)
+    check("strip removes body", "x{}" not in stripped)
+    check("strip keeps head", "head" in stripped)
+    check("strip keeps trailer", "trailer" in stripped)
+
+    check("strip on clean text is a no-op", strip("nothing here", B, E) == "nothing here")
+    check("strip with only a begin marker is a no-op",
+          strip("a\n" + B + "\nb", B, E) == "a\n" + B + "\nb")
+    check("empty input works", inject("", "z{}", B, E).count(B) == 1)
+
+    # Content around an existing block must survive replacement untouched.
+    doc = "before\n" + B + "\nold\n" + E + "\nafter\n"
+    check("replacement preserves surroundings",
+          "before" in inject(doc, "new", B, E) and "after" in inject(doc, "new", B, E))
+
+
 if __name__ == "__main__":
     test_paths()
     test_expand()
     test_merge()
+    test_textblock()
     print()
     if FAILED:
         print(f"FAILED ({len(FAILED)}): {', '.join(FAILED)}")
