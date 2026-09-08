@@ -3,3 +3,9 @@ __pycache__/
 .DS_Store
 cache/
 node_modules/
+.gstack/
+
+# Editor/agent scratch backups left beside the file they shadow.
+*.bak
+*.bak.*
+*.bak-*

@@ -150,6 +150,13 @@ auto-resolves paths. Start a `claude` session and watch the notch.
 - Disable: `python3 bridge/install-hooks.py disable` · Status: `… status`
 - Prove the safety net (no island required): `python3 bridge/test_safety.py`
 
+### 5. (Optional) Enable voice dictation
+Hold **Right Ctrl** to dictate straight into the focused window, with a live
+waveform in the notch. It's powered by the external
+**[hyprvoice](https://github.com/leonardotrapani/hyprvoice)** daemon + Groq Whisper.
+Full setup (dependencies, Groq key, the push-to-talk keybind translated for stock
+Hyprland) is in **[docs/voice-dictation.md](docs/voice-dictation.md)**.
+
 ---
 
 ## Notes & gotchas

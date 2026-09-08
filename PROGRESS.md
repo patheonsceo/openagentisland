@@ -5,94 +5,62 @@ lives in `NOTES.md`.
 
 ---
 
-## 2026-08-30 — Desktop widget: resize, settings menu, undo. STATE OF PLAY
+## 2026-08-30 — Widget board: gesture fixes, shared chrome, clock + calendar, settings page
 
-Everything below is committed and live. `qs -c openagentisland` is running the
-macOS-style shell: menubar + notch + dock, desktop todo widget, traffic lights.
+**Status:** three widgets live on the wallpaper (to-do, clock, calendar), all
+sharing one layer surface and one chrome implementation, configurable from the
+settings app.
 
-### Shipped this session
+### Done
 
-- **Desktop todo widget** on its own `WlrLayer.Bottom` surface
-  (`modules/ii/desktopWidgets/`) — frosted card, per-task countdown timer with a
-  fullscreen focus screen and a draggable pill, resizable, numbered list,
-  right-click settings menu, undo for every removal.
-- **Menubar** (`modules/ii/menubar/`) replaced IslandLeft/IslandRight. Scrim
-  gradient, logo + app name + workspaces, status cluster where every item does
-  something distinct, plus a **Control Centre** panel.
-- **Dock rebuilt from scratch** (`modules/ii/macDock/`) with magnification.
-  The original dock is still present behind `dock.macStyleDock`.
-- **Traffic lights** — config only, outside this repo. See NOTES §8.
-- **Idle CPU 25.9% -> ~13%** as a side effect of retiring the two islands.
+- **Three interaction defects fixed** in the gesture layer — the code every
+  other widget was about to reuse.
+  - *Drag trailed the cursor.* Qt defaults `Drag.smoothed` to true, which moves
+    the target only after the threshold is crossed and then holds it offset by
+    however far the pointer travelled in that first motion event: a few pixels
+    when you move slowly, a wide gap when you flick. `drag.target` was also
+    bound to `pressedButtons`, which is not set until the end of press handling.
+    Now a static target, `smoothed: false`, `threshold: 0`, bounded during the
+    gesture instead of clamped after it. Measured 0px lag over a 422px flick.
+  - *Resize fought back.* Every motion event wrote `config.width`, pushing the
+    whole options object through JsonAdapter and restarting the debounced file
+    write dozens of times a second. Gestures now drive local pending values and
+    commit once, on release.
+  - *Typing needed a second click.* `keyboardFocus` was raised in response to a
+    field taking focus, but `OnDemand` means "grant focus when the user clicks
+    this surface" and so must already be set when the click lands. The caret
+    blinked in a field that could not take a keystroke. Now `OnDemand` whenever
+    visible, dropping to `None` briefly on Escape to hand the keyboard back.
+- **DesktopWidget** extracted: frost, drag strip, resize grips, position and
+  size persistence, menu placement, board registration. TodoCard lost ~230 lines
+  of chrome and kept only its face.
+- **DesktopWidgets is now a board** — one surface per screen for all widgets,
+  union input mask, sibling geometry available for snapping.
+- **Placement modes** applied in `commitPosition()` and nowhere else: free, snap
+  (margins, centres and neighbours, with a live guide line — the default), grid
+  (position *and* size quantise).
+- **Clock widget** — several zones, one on the face, pills to switch.
+- **Calendar widget** — fixed six-row grid so paging never changes card height.
+  No events yet; that needs a source decision (.ics / khal / GoogleCloud).
+- **Settings → Widgets page**, including timezone chips rather than a raw CSV
+  field. Verified end-to-end: clicking a control writes to `config.json`.
 
-### Outstanding
+### Next
 
-1. **`install.sh` is written but UNCOMMITTED and untested.** ~430 lines at the
-   repo root, plus `install/traffic-lights/*.css` which ARE committed. The user
-   wants to discuss scope before it lands. It delegates the end-4 base to end-4's
-   own installer. **Its base-install path has never been run** — running it would
-   reinstall the user's desktop.
-2. **README still describes the old three-island design** and its screenshots are
-   stale. Agreed to update it alongside the installer.
-3. **This machine has no removal markers** in the matugen templates / Zen
-   userChrome, because the CSS was appended by hand before the installer existed.
-   Re-running the installer here would duplicate the block.
-4. Zen traffic lights are not leftmost (Zen's sidebar toggle still precedes
-   them). `order: -1` would fix it; left alone deliberately.
-5. Remaining idle CPU (~13%) is unexplained. The notch is ~8% of it with zero
-   visual change. Needs the QML profiler, not more guessing.
+- Converge `TodoMenu` onto `WidgetMenu` — it still carries its own copy of the
+  menu row components.
+- `WidgetMenu`'s "Reset size" resets width to 320 for every widget, which is
+  wrong for the calendar.
+- Calendar events: pick a source.
+- The installer conversation (`install.sh`, still uncommitted).
 
-### DO NOT TOUCH
+### Open
 
-The working tree carries the user's own uncommitted work — acKeepAwake
-(`GlobalStates`, `Idle.qml`, `shell.qml`, quickToggles, Config) and
-regionSelector (`RegionSelection.qml`, Config, Persistent). Every commit this
-session staged ONLY its own hunks, via a python hunk filter, and verified with
-`git diff --cached | grep -cE "acKeepAwake|rememberLastRegion|Idle.load"`
-returning 0. Keep doing that.
-
----
-
-## 2026-08-26 (evening) — traffic lights
-
-Config only, nothing in this repo; see NOTES.md section 8. GTK + Qt button layout
-moved left, macOS traffic-light CSS added to the **Matugen templates** so a
-wallpaper change cannot wipe it (verified across five regenerations).
-
-- Works fully on GTK4/libadwaita (Nautilus): circles, correct colours, hover
-  reveals all three glyphs, backdrop greys them out.
-- **Zen moves its buttons left but keeps its own styling** — Firefox draws its own
-  window controls, so GTK CSS does not reach them. Would need userChrome.css.
-- kitty / Warp / Discord unchanged by design (no titlebar to decorate).
-
-Gotchas: `all: unset` is required or libadwaita leaves them oval and the amber one
-muddy; GTK CSS has no `max-height`, so vertical `margin` is the only way to get a
-circle out of a button that stretches to the headerbar height.
-
----
-
-## 2026-08-26 (evening) — menubar items made functional + Control Centre
-
-- Every menubar item now does something specific rather than all opening the same
-  sidebar. Volume: scroll to change, click to mute, right click for the mixer.
-  Wi-Fi / Bluetooth: click toggles the radio, right click opens settings. Clock:
-  click drops a calendar.
-- **Control Centre** (`modules/ii/menubar/ControlCentre.qml`): power-mode chips,
-  live CPU / memory / swap / GPU / battery, volume + brightness sliders, Wi-Fi and
-  Bluetooth tiles. GPU is reported as a *clock*, not load — Intel integrated
-  graphics expose no busy-percent, so calling it load would be a guess.
-- `ResourceUsage` gained Intel GPU clock (globs for the card dir; index varies).
-
-### Gotchas
-
-- **`FileView.reload()` is async** — `text()` on the next line returns the previous
-  contents or empty. CPU temp and GPU clock read as 0 until `blockLoading: true`.
-- **`Hyprland` requires `import Quickshell.Hyprland`** — without it the reference
-  fails as a runtime ReferenceError, which is why the menubar always showed
-  "Desktop" instead of the focused app's name.
-- **Do not derive a ShellScreen from `QsWindow` inside a popup** — it resolves to
-  the popup's window, and `Brightness.getMonitorForScreen` matches by identity.
-- Not a bug: the brightness slider reading near-zero was correct. The backlight
-  really was at 1/400.
+- **Quickshell has no `Intl`.** `new Intl.DateTimeFormat(...)` throws "Intl is
+  not defined", so no timezone or locale formatting is available from the engine.
+  Zone offsets are read from `date` in one shell call, cached, refreshed every
+  half hour for DST; weekday and month names are spelled out in the QML. Note
+  there is prior art for this in the right-island clock popup (2026-07-09).
 
 ---
 
@@ -214,6 +182,59 @@ code was written; see NOTES.md §6 for architecture and gotchas.
   each and re-measuring.
 
 ---
+
+## 2026-08-24 — Keep-awake on AC, snip remembers its last region
+
+- **New quick toggle "Awake on AC"** (`acKeepAwake`). While the charger is connected
+  the shell holds the Wayland idle inhibitor, so Hyprland never reports idle and
+  hypridle never locks, blanks or suspends. Independent of the existing coffee
+  toggle: `Idle.inhibit` is now `manualInhibit || acInhibit`, and `toggleInhibit()`
+  drives `manualInhibit` so the two never fight. Config option
+  `battery.keepAwakeWhenPluggedIn` (default true), model + android/classic delegates,
+  and `Idle.load()` in `shell.qml` so the singleton exists from startup rather than
+  only once a panel touches it. Verified end-to-end with a throwaway hypridle on a
+  5s timeout: policy off → fired; policy on → zero idle events in 60s.
+  - *Gotcha:* `Battery.isPluggedIn` is unusable for this. The 80% charge limiter parks
+    the battery at UPower state `fully-charged` on AC, so charge-state tests read
+    false while plugged in. `Idle.qml` uses `UPower.onBattery` (line-power) instead.
+- **Region selector remembers the last snip.** Reopening the overlay redraws the
+  previous selection; **Enter/Space** accepts it (Shift+Enter → annotation editor),
+  dragging replaces it exactly as before. Region + its screen live in
+  `Persistent.states.regionSelector`; config option
+  `regionSelector.rememberLastRegion` (default true).
+  - Restore drives `dragStartX/Y` + `draggingX/Y` rather than overwriting
+    `regionX/Y/Width/Height`, so the existing bindings — and every drag path — are
+    untouched.
+  - *Gotcha:* one `RegionSelection` exists per screen and the key press lands on
+    whichever holds keyboard focus, which is often **not** the screen the region
+    belongs to. Enter therefore broadcasts via `GlobalStates.regionAcceptRequest`
+    and only the instance that actually restored a region responds. Storing one
+    region (not a per-screen map) keeps that unambiguous.
+  - Also fixed: `snip()` warned about a zero-size region then fell through and ran
+    the capture anyway — missing `return`.
+
+## 2026-07-23 — Launcher dock fix, voice-dictation docs, GNOME frontend
+
+- **Agent Island launcher: fixed the stray-icon / can't-reopen bug.** Root cause:
+  Agent Island is a separate `qs --path` process and Quickshell hardcodes every
+  `FloatingWindow`'s app_id to `org.quickshell`, so the dock bucketed it with other
+  quickshell windows and pinning left a dead shared icon that could never relaunch.
+  Fix (3 files): `TaskbarApps.effectiveAppId()` re-buckets it under a synthetic
+  `agentisland` id (by window title); `DockAppButton` recognises that id, shows the
+  bundled logo even with no live window, and `launchApp()` relaunches by spawning
+  `qs --path agentIsland.qml` directly (config-relative, no `.desktop` needed);
+  `AgentIslandWindow` gained `onClosed: Qt.quit()` so no close path leaves a zombie
+  process. Every other dock app takes the identical old path. *(Reload the shell to
+  verify live — the atomic-write hot-reload gotcha means it's staged, not applied.)*
+- **Voice dictation documented** for reproducibility: `docs/voice-dictation.md` +
+  README §5. hyprvoice is a third-party **MIT** project (AUR `hyprvoice-bin`) —
+  treated as a documented dependency, **not vendored**. Its
+  `~/.config/hyprvoice/config.toml` holds a plaintext Groq key; repo scanned, nothing
+  tracked — docs tell users to generate their own via the wizard.
+- **GNOME Shell frontend** (separate worktree, branch `gnome-extension`): the notch
+  rebuilt as a GJS extension sharing the same `bridge/` byte-for-byte. Build complete
+  + verified loading in headless GNOME Shell 50. Details in that branch's
+  `gnome-extension/PROGRESS.md`.
 
 ## 2026-07-13 — Notch on laptop screen only (config-driven) + perf tuning
 
