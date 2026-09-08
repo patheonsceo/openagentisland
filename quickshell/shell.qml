@@ -29,6 +29,7 @@ ShellRoot {
         ConflictKiller.load()
         Cliphist.refresh()
         Wallpapers.load()
+        Idle.load()          // keep the idle inhibitor alive from startup (AC keep-awake policy)
         Updates.load()
         AgentService.load()   // start the Claude Code agent bridge listener
     }
