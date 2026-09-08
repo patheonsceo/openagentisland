@@ -59,7 +59,12 @@ Scope {
 
     FolderListModel {
         id: trashModel
-        folder: `file://${Directories.home}/.local/share/Trash/files`
+        // Directories.home already carries the file:// scheme. Prefixing it
+        // again produced file://file:///... — which FolderListModel cannot
+        // parse, so it silently fell back to its default folder (the shell's
+        // working directory). That is never empty, so the Trash icon read as
+        // full no matter what was actually in the Trash.
+        folder: `${Directories.home}/.local/share/Trash/files`
         showDirs: true
         showFiles: true
         showHidden: true
