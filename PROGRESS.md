@@ -5,6 +5,102 @@ lives in `NOTES.md`.
 
 ---
 
+## 2026-09-08 — Distribution: manifest-driven installer, vendored desktop, nested harness, docs
+
+**Status:** the repo now installs the whole desktop from one clone and one
+script. Spec in `docs/superpowers/specs/2026-09-08-openagentisland-distribution-design.md`,
+plan in `docs/superpowers/plans/2026-09-08-distribution-rework.md`.
+
+### Done
+
+- **Landed 61 unpushed commits and renamed the repo.** `install.sh` had been
+  sitting uncommitted at the root for weeks (this file said so). Triaged the 23
+  dirty files into five coherent commits — MacDock trash URI, region-selector
+  remember-last, AC keep-awake, the desktop icon board, and the installer —
+  rebased onto one remote README edit, pushed. `Dynamic-island-for-arch` is now
+  `openagentisland`; the 15 stars and the old URL redirect survive.
+- **The installer is manifest-driven.** `manifest.toml` holds 20 rows;
+  `install/engine.py` walks it. `install.sh` is now just the front door —
+  arguments, preflight, the end-4 base. Install, `--dry-run`, `--uninstall`,
+  `--status` and `verify` all derive from the same table, so adding a config
+  layer is a row rather than new bash in three places.
+- **Six modes**, four of them ports of machinery that was already in
+  `install.sh`. The two new ones are `extract` and `merge-json`.
+- **`--status`** diffs every live destination against the repo. Nothing syncs
+  automatically here by design; this is what stops that meaning "drifts
+  unnoticed". Run against this machine it immediately reported the
+  traffic-light templates as `not-injected`, which is exactly what the
+  "Outstanding" list below already knew.
+- **Vendored the desktop**: 3 font families + PP Editorial New, WhiteSur icons,
+  MatugenGlass, wallpapers, `hypr/custom`, terminal and launcher configs.
+- **A nested dev harness** — `dev/nested.sh` runs the shell from a git worktree
+  in a nested Hyprland pinned to **workspace 8** at a fixed 1600x900, against a
+  shadow XDG tree it cannot escape. `dev/shot.sh` captures deterministically.
+- **Docs on Mintlify** — 12 pages. `what-it-installs.mdx` is generated from
+  `manifest.toml`, so it cannot go stale.
+
+### Measurement changed the plan twice
+
+- The rice references **three** font families, not the eleven installed. The
+  other eight (122MB, Iosevka the worst of it) are leftovers from the font
+  bake-off and are referenced by nothing.
+- The WhiteSur icon themes are **41,418 files / 95MB** loose. Committed that
+  way they would slow `clone` and `status` for every user forever. As one zstd
+  tarball: **5.4MB**.
+- The 33MB 6000x3255 `random_wallpaper.jpg` was referenced by nothing; replaced
+  with the wallpaper actually on screen. Total vendored payload ~35MB, against
+  the ~150MB first estimated.
+
+### Gotchas hit
+
+- **`nautilus-glass` is a shadow XDG_CONFIG_HOME** — 96 symlinks into the real
+  `~/.config` plus one gtk-4.0 override. `cp -a` vendored absolute
+  `/home/topg/...` paths that mean nothing on another machine, and the install
+  failed on every one. Only the override ships; the passthrough links are
+  generated at install time.
+- **Hyprland 0.56 replaced the string dispatchers with a Lua API.** `hyprctl
+  dispatch movetoworkspacesilent 8,address:0x..` no longer parses — arguments
+  are spliced into a Lua call unquoted. Correct form is
+  `hl.dispatch(hl.dsp.window.move({workspace='8', silent=true, window='address:0x..'}))`.
+  `hl.dsp.window.resize({x=N, y=N})` takes **absolute** values, not deltas.
+- **Nested blocks in a `.conf` must be multi-line.** `blur { enabled = false }`
+  on one line is not parsed and reports the whole fragment as an unknown
+  option — which drew a red config-error banner across every screenshot.
+- **`gsettings` is session-scoped, not `$HOME`-scoped.** The round-trip test
+  wrote to the real dconf despite a scratch `HOME`. No damage (the values were
+  identical to what was live) but the test now sets `GSETTINGS_BACKEND=memory`.
+- **`dev/shot.sh` wrote into `docs/screenshots/`** and overwrote the README's
+  `desktop.png` on its first real use. Captures now go to gitignored
+  `dev/shots/`; publishing needs `--docs` and refuses to clobber without
+  `--force`.
+- **Fenced injection was not byte-idempotent.** The insert path added a newline
+  *and* the block; the replace path added only the block, so run one and run
+  two differed by a blank line. Found by a test written before the port.
+- **A worktree only contains committed files.** `dev/nested.sh` failed the
+  first time because `dev/hypr-nested.conf` was still untracked. This is
+  correct behaviour and confirms the workflow: develop *inside* the worktree
+  and let Quickshell hot-reload.
+
+### Verified
+
+`python3 install/test_engine.py` — all passed ·
+`bash dev/test-install.sh` — round-trip PASSED ·
+`python3 bridge/test_safety.py` — 13/13 ·
+docs generator deterministic · nested session renders on ws8 · live symlink
+still points at the main checkout, live shell untouched.
+
+### Next
+
+- Ubuntu port — its own brainstorm → spec → plan cycle. Container-based testing
+  is already scoped: `systemd-nspawn` with the host Wayland socket bound in,
+  nested Hyprland as a window. The real unknown is whether Quickshell builds
+  against Ubuntu's Qt6.
+- Connect the Mintlify GitHub app so `docs/` actually deploys.
+- Re-shoot the README screenshots from the nested session, with the welcome
+  dialog dismissed.
+
+---
+
 ## 2026-08-30 — Widget board: gesture fixes, shared chrome, clock + calendar, settings page
 
 **Status:** three widgets live on the wallpaper (to-do, clock, calendar), all

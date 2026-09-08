@@ -344,7 +344,6 @@ class Engine:
             self.HANDLERS[art.mode](self, art, src, dest)
             if art.post:
                 self._shell(art.post)
-        step("Done")
         if not self.dry_run:
             info(f"backup: {self.short(self.original)}")
 
