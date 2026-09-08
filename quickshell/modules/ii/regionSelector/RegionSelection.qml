@@ -1,4 +1,5 @@
 pragma ComponentBehavior: Bound
+import qs
 import qs.modules.common
 import qs.modules.common.utils
 import qs.modules.common.functions
@@ -184,6 +185,60 @@ PanelWindow {
     property real regionX: Math.min(dragStartX, draggingX)
     property real regionY: Math.min(dragStartY, draggingY)
 
+    // Remembered region: reopening the overlay restores the last selection made on this
+    // screen, so a repeat snip of the same area is just Super+Shift+S then Enter.
+    readonly property bool rememberLastRegion: Config.options.regionSelector.rememberLastRegion && !root.isCircleSelection
+    property bool regionRestored: false
+
+    function restoreLastRegion() {
+        if (!root.rememberLastRegion) return;
+        const saved = Persistent.states.regionSelector;
+        if (saved.lastRegionScreen !== root.screen.name) return;
+        if (!(saved.lastRegionWidth > 0 && saved.lastRegionHeight > 0)) return;
+        // Drop it if the screen changed shape since (resolution, scale, layout)
+        if (saved.lastRegionX < 0 || saved.lastRegionY < 0 //
+            || saved.lastRegionX + saved.lastRegionWidth > root.screen.width //
+            || saved.lastRegionY + saved.lastRegionHeight > root.screen.height) return;
+        // Drive the existing region bindings rather than overwriting them, so a
+        // subsequent drag behaves exactly as it always did.
+        root.dragStartX = saved.lastRegionX;
+        root.dragStartY = saved.lastRegionY;
+        root.draggingX = saved.lastRegionX + saved.lastRegionWidth;
+        root.draggingY = saved.lastRegionY + saved.lastRegionHeight;
+        root.regionRestored = true;
+    }
+
+    function saveLastRegion() {
+        if (!root.rememberLastRegion) return;
+        if (!(root.regionWidth > 0 && root.regionHeight > 0)) return;
+        Persistent.states.regionSelector.lastRegionScreen = root.screen.name;
+        Persistent.states.regionSelector.lastRegionX = Math.round(root.regionX);
+        Persistent.states.regionSelector.lastRegionY = Math.round(root.regionY);
+        Persistent.states.regionSelector.lastRegionWidth = Math.round(root.regionWidth);
+        Persistent.states.regionSelector.lastRegionHeight = Math.round(root.regionHeight);
+    }
+
+    // Accept the restored region without dragging (Enter/Space).
+    // Shift sends it to the annotation editor, matching a right-click drag.
+    function acceptCurrentRegion(toEditor) {
+        if (!(root.regionWidth > 0 && root.regionHeight > 0)) return false;
+        root.mouseButton = toEditor ? Qt.RightButton : Qt.LeftButton;
+        root.snip();
+        return true;
+    }
+
+    Component.onCompleted: root.restoreLastRegion()
+
+    // Only the overlay that actually restored a region responds, whichever screen
+    // the key press happened to land on.
+    Connections {
+        target: GlobalStates
+        function onRegionAcceptRequestChanged() {
+            if (!root.visible || !root.regionRestored) return;
+            root.acceptCurrentRegion(GlobalStates.regionAcceptToEditor);
+        }
+    }
+
     // Screenshot stuff
     TempScreenshotProcess {
         id: screenshotProc
@@ -263,6 +318,7 @@ PanelWindow {
         if (root.regionWidth <= 0 || root.regionHeight <= 0) {
             console.warn("[Region Selector] Invalid region size, skipping snip.");
             root.dismiss();
+            return;
         }
 
         // Clamp region to screen bounds
@@ -270,6 +326,8 @@ PanelWindow {
         root.regionY = Math.max(0, Math.min(root.regionY, root.screen.height - root.regionHeight));
         root.regionWidth = Math.max(0, Math.min(root.regionWidth, root.screen.width - root.regionX));
         root.regionHeight = Math.max(0, Math.min(root.regionHeight, root.screen.height - root.regionY));
+
+        root.saveLastRegion();
 
         // Adjust action
         if (root.action === RegionSelection.SnipAction.Copy || root.action === RegionSelection.SnipAction.Edit) {
@@ -312,9 +370,14 @@ PanelWindow {
         visible: root.phase === RegionSelection.Phase.Select
 
         focus: root.visible
-        Keys.onPressed: (event) => { // Esc to close
+        Keys.onPressed: (event) => { // Esc to close, Enter/Space to accept the restored region
             if (event.key === Qt.Key_Escape) {
                 root.dismiss();
+                event.accepted = true;
+            } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) {
+                GlobalStates.regionAcceptToEditor = (event.modifiers & Qt.ShiftModifier) !== 0;
+                GlobalStates.regionAcceptRequest++;
+                event.accepted = true;
             }
         }
     }

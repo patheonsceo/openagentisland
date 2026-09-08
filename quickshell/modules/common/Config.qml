@@ -609,6 +609,9 @@ Singleton {
             }
 
             property JsonObject regionSelector: JsonObject {
+                // Reopen the snip overlay with the previous selection already drawn.
+                // Enter/Space accepts it, dragging replaces it as usual.
+                property bool rememberLastRegion: true
                 property JsonObject targetRegions: JsonObject {
                     property bool windows: true
                     property bool layers: false

@@ -20,6 +20,11 @@ Singleton {
     property bool overlayOpen: false
     property bool overviewOpen: false
     property bool regionSelectorOpen: false
+    // Bumped when the snip overlay is asked to accept its restored region. The key press
+    // lands on whichever screen holds keyboard focus, which is not necessarily the screen
+    // the region belongs to, so the request is broadcast to every overlay instance.
+    property int regionAcceptRequest: 0
+    property bool regionAcceptToEditor: false
     property bool searchOpen: false
     property bool screenLocked: false
     property bool screenLockContainsCharacters: false
