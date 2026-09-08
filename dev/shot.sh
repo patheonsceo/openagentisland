@@ -56,10 +56,19 @@ if (( PUBLISH )) && [[ -e "$OUT" ]] && (( ! FORCE )); then
     die "$OUT already exists. It is probably a README asset. Pass --force if you really mean to replace it."
 fi
 
+# Clear Hyprland's own notifications inside the nested session first. It always
+# warns that it was started without start-hyprland, which is true and expected
+# here, but the banner would land in every screenshot.
+if [[ -f "$STATE/instance" ]]; then
+    HYPRLAND_INSTANCE_SIGNATURE="$(cat "$STATE/instance")" \
+        hyprctl dismissnotify >/dev/null 2>&1 || true
+fi
+
 if [[ "$WS" != "$CUR" ]]; then
     hyprctl dispatch workspace "$WS" >/dev/null
     sleep 0.4
 fi
+sleep 0.3
 grim -g "$GEO" "$OUT"
 if [[ "$WS" != "$CUR" ]]; then
     hyprctl dispatch workspace "$CUR" >/dev/null

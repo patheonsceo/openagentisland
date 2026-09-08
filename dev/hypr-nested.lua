@@ -21,13 +21,17 @@ hl.monitor({
 
 hl.env("qsConfig", "openagentisland")
 
+-- Former exec-once commands go inside this handler. This is what actually
+-- starts the shell; without it the nested session is an empty compositor.
+hl.on("hyprland.start", function()
+    hl.exec_cmd("qs -c openagentisland")
+end)
+
 hl.config({
     misc = {
         disable_hyprland_logo = true,
         disable_splash_rendering = true,
-        force_default_wallpaper = 0,
-        -- We know. This IS the debugging environment.
-        disable_hyprland_qtutils_check = true
+        force_default_wallpaper = 0
     },
 
     -- Off so screenshots are deterministic and the nested session stays cheap:
@@ -52,4 +56,6 @@ hl.config({
 })
 
 -- Escape hatch: the nested session grabs input while focused.
-hl.bind("SUPER SHIFT, Q", hl.dsp.exit(), { description = "Quit the nested session" })
+-- Key strings are joined with "+", not commas. "SUPER SHIFT, Q" fails to parse
+-- and takes every other bind down with it into emergency mode.
+hl.bind("SUPER + SHIFT + Q", hl.dsp.exit(), { description = "Quit the nested session" })

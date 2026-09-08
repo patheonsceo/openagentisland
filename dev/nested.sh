@@ -187,6 +187,20 @@ size="$(hyprctl clients -j | jq -r --arg a "$addr" '.[] | select(.address == $a)
     || info "size is $size, wanted ${NESTED_W}x${NESTED_H} — screenshots will still work, just not at the canonical size"
 
 echo "$addr" > "$STATE/address"
+
+# Record the nested compositor's instance signature. shot.sh needs it to
+# dismiss Hyprland's own notifications before capturing — a nested session
+# always warns that it was started without start-hyprland, and that banner
+# would otherwise sit across the top of every screenshot. Stale directories
+# from killed sessions linger, so the live one is found by probing.
+for inst in $(command ls -1 "${XDG_RUNTIME_DIR}/hypr" 2>/dev/null); do
+    [[ "$inst" == "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]] && continue
+    if HYPRLAND_INSTANCE_SIGNATURE="$inst" hyprctl version >/dev/null 2>&1; then
+        echo "$inst" > "$STATE/instance"
+        break
+    fi
+done
+
 ok "window $addr -> workspace $WORKSPACE"
 
 step "Ready"
