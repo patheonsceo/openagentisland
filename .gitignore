@@ -12,3 +12,6 @@ node_modules/
 
 # Nested-session development worktrees.
 .worktrees/
+
+# Scratch captures from the nested session.
+dev/shots/
