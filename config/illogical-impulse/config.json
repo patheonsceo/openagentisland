@@ -1,0 +1,258 @@
+{
+  "appearance": {
+    "fonts": {
+      "expressive": "Space Grotesk",
+      "iconNerd": "JetBrainsMono Nerd Font",
+      "main": "SF Pro Display",
+      "monospace": "JetBrainsMono Nerd Font",
+      "numbers": "SF Pro Display",
+      "reading": "Readex Pro",
+      "serif": "PP Editorial New",
+      "title": "SF Pro Display"
+    },
+    "transparency": {
+      "automatic": true,
+      "backgroundTransparency": 0.11,
+      "contentTransparency": 0.57,
+      "enable": true
+    },
+    "wallpaperTheming": {
+      "enableAppsAndShell": true,
+      "enableQtApps": true,
+      "enableTerminal": true,
+      "terminalGenerationProps": {
+        "forceDarkMode": false,
+        "harmonizeThreshold": 100,
+        "harmony": 0.6,
+        "termFgBoost": 0.35
+      }
+    },
+    "extraBackgroundTint": true,
+    "fakeScreenRounding": 0
+  },
+  "background": {
+    "widgets": {
+      "calendar": {
+        "baseOpacity": 0.42,
+        "blurRadius": 64,
+        "contentHeight": 0,
+        "enable": true,
+        "firstDayOfWeek": 1,
+        "showWeekNumbers": false,
+        "solidMaterial": false,
+        "tintOpacity": 0.1,
+        "width": 340,
+        "x": 471,
+        "y": 70
+      },
+      "clock": {
+        "cookie": {
+          "aiStyling": false,
+          "constantlyRotate": false,
+          "dateInClock": true,
+          "dateStyle": "border",
+          "dialNumberStyle": "full",
+          "hourHandStyle": "classic",
+          "hourMarks": false,
+          "minuteHandStyle": "classic",
+          "secondHandStyle": "dot",
+          "sides": 14,
+          "timeIndicators": true,
+          "useSineCookie": false
+        },
+        "digital": {
+          "adaptiveAlignment": true,
+          "animateChange": true,
+          "font": {
+            "family": "Google Sans Flex",
+            "roundness": 0,
+            "size": 90,
+            "weight": 157.59152188628158,
+            "width": 100
+          },
+          "showDate": true,
+          "vertical": false
+        },
+        "enable": false,
+        "placementStrategy": "free",
+        "quote": {
+          "enable": false,
+          "text": ""
+        },
+        "showOnlyWhenLocked": false,
+        "style": "digital",
+        "styleLocked": "digital",
+        "x": 409.88671875,
+        "y": 164.74609375
+      },
+      "clockCard": {
+        "activeTimezone": "local",
+        "baseOpacity": 0.42,
+        "blurRadius": 64,
+        "contentHeight": 0,
+        "enable": true,
+        "showDate": true,
+        "showSeconds": false,
+        "solidMaterial": false,
+        "timeSize": 76,
+        "timeWeight": 400,
+        "timezones": "local,America/New_York,Europe/London,San Francisco",
+        "tintOpacity": 0.1,
+        "twelveHour": true,
+        "width": 431,
+        "x": 25,
+        "y": 70
+      },
+      "gridSize": 60,
+      "placementMode": "snap",
+      "screenMargin": 24,
+      "screenName": "",
+      "snapThreshold": 12,
+      "todo": {
+        "baseOpacity": 0.42,
+        "blurRadius": 64,
+        "contentHeight": 0,
+        "defaultDuration": 25,
+        "durationPresets": "15,25,50",
+        "enable": true,
+        "listHeight": 262,
+        "listName": "Today",
+        "maxVisibleTasks": 8,
+        "maxWidth": 620,
+        "minWidth": 260,
+        "placementStrategy": "free",
+        "screenName": "",
+        "showCompleted": true,
+        "solidMaterial": false,
+        "tintOpacity": 0.1,
+        "width": 430,
+        "x": 26,
+        "y": 291
+      },
+      "weather": {
+        "enable": false,
+        "placementStrategy": "free",
+        "x": 400,
+        "y": 100
+      }
+    },
+    "parallax": {
+      "autoVertical": false,
+      "enableSidebar": false,
+      "enableWorkspace": false,
+      "vertical": false,
+      "widgetsFactor": 1.2,
+      "workspaceZoom": 1.01
+    },
+    "hideWhenFullscreen": true
+  },
+  "dock": {
+    "enable": true,
+    "height": 60,
+    "hoverRegionHeight": 2,
+    "hoverToReveal": true,
+    "ignoredAppRegexes": [],
+    "macStyle": {
+      "iconSize": 52,
+      "opacity": 0.55
+    },
+    "macStyleDock": true,
+    "magnification": {
+      "enable": true,
+      "peak": 1.28,
+      "spread": 2.9
+    },
+    "monochromeIcons": false,
+    "pinnedApps": [
+      "org.kde.dolphin",
+      "org.gnome.Nautilus",
+      "zen",
+      "google-chrome",
+      "com.anthropic.Claude",
+      "discord",
+      "obsidian",
+      "notion",
+      "code",
+      "cursor",
+      "dev.warp.Warp",
+      "kitty",
+      "org.gnome.Loupe",
+      "org.gnome.clocks",
+      "org.pulseaudio.pavucontrol",
+      "systemsettings"
+    ],
+    "pinnedOnStartup": true,
+    "reserveSpace": true
+  },
+  "bar": {
+    "autoHide": {
+      "enable": false,
+      "hoverRegionWidth": 2,
+      "pushWindows": false,
+      "showWhenPressingSuper": {
+        "delay": 140,
+        "enable": true
+      }
+    },
+    "borderless": false,
+    "bottom": false,
+    "cornerStyle": 0,
+    "floatStyleShadow": true,
+    "indicators": {
+      "notifications": {
+        "showUnreadCount": true
+      }
+    },
+    "menubarMaterial": "bar",
+    "menubarOpacity": 0.72,
+    "resources": {
+      "alwaysShowCpu": true,
+      "alwaysShowSwap": true,
+      "cpuWarningThreshold": 90,
+      "memoryWarningThreshold": 95,
+      "swapWarningThreshold": 85
+    },
+    "screenList": [],
+    "showBackground": true,
+    "tooltips": {
+      "clickToShow": false
+    },
+    "topLeftIcon": "spark",
+    "utilButtons": {
+      "showColorPicker": false,
+      "showDarkModeToggle": false,
+      "showKeyboardToggle": false,
+      "showMicToggle": false,
+      "showPerformanceProfileToggle": true,
+      "showScreenRecord": false,
+      "showScreenSnip": false
+    },
+    "verbose": true,
+    "vertical": false,
+    "weather": {
+      "city": "",
+      "enable": false,
+      "enableGPS": true,
+      "fetchInterval": 10,
+      "useUSCS": false
+    },
+    "workspaces": {
+      "alwaysShowNumbers": true,
+      "monochromeIcons": true,
+      "numberMap": [
+        "1",
+        "2"
+      ],
+      "showAppIcons": true,
+      "showNumberDelay": 300,
+      "shown": 10,
+      "useNerdFont": false
+    }
+  },
+  "battery": {
+    "keepAwakeWhenPluggedIn": true
+  },
+  "regionSelector": {
+    "rememberLastRegion": true
+  }
+}

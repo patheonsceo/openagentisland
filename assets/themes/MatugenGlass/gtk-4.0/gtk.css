@@ -1,0 +1,2 @@
+/* priority test: theme CSS (200) vs user CSS (600) */
+window, window.background { background: rgba(255,0,0,0.35) !important; }

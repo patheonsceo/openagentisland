@@ -1,0 +1,46 @@
+/*
+ * Nautilus frosted glass — loaded ONLY for Nautilus, via the shadow
+ * XDG_CONFIG_HOME set by ~/.local/bin/nautilus-glass.
+ *
+ * The matugen-generated theme is imported first, so every Material You color
+ * keeps tracking the wallpaper on each switchwall run; the rules below just
+ * layer alpha on top. Pair with the no_blur=false window rule for
+ * org.gnome.Nautilus in ~/.config/hypr/custom/rules.lua — without it the global
+ * blur-off rule leaves this looking see-through rather than frosted.
+ */
+@import url("file:///home/topg/.config/gtk-4.0/gtk.css");
+
+/* The toplevel is the only surface that needs to let the wallpaper through. */
+window,
+window.background {
+  background-color: alpha(@window_bg_color, 0.80);
+}
+
+/* Chrome and panes ride on the toplevel instead of painting their own slab. */
+headerbar,
+headerbar.titlebar,
+headerbar:backdrop,
+.content-pane,
+.navigation-sidebar,
+.nautilus-grid-view,
+.nautilus-list-view,
+scrolledwindow,
+scrolledwindow > viewport,
+gridview,
+columnview,
+listview,
+.view {
+  background-color: transparent;
+}
+
+/* Sidebar keeps a faint plane of its own so it still reads as a sidebar. */
+.sidebar-pane {
+  background-color: alpha(@sidebar_bg_color, 0.30);
+}
+
+/* Popovers, dialogs and menus stay opaque — Hyprland has popup blur disabled,
+   so translucent ones would render as unreadable see-through boxes. */
+popover > contents,
+popover > arrow {
+  background-color: @popover_bg_color;
+}
